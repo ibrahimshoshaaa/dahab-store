@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
+@import "tailwindcss";
+
+/*
+  متغيرات الثيم (الشكل العام) — القيم الافتراضية هنا.
+  لوحة الأدمن (الشكل العام) بتحقن قيم مخصصة فوق دي في <head> الصفحة،
+  عشان كده أي تغيير في الألوان/الخطوط من الداشبورد بينعكس على الموقع كله فورًا
+  من غير ما نحتاج نلمس أي كلاس Tailwind في الكود.
+*/
+:root {
+  --brand: #a48343;
+  --brand-dark: #a07845;
+  --ink: #171512;
+  --bg: #faf8f4;
+  --surface: #f0ede7;
+
+  /* درجات مشتقة من اللون الأساسي تلقائيًا */
+  --brand-soft: color-mix(in srgb, var(--brand) 55%, white);
+  --brand-mid: color-mix(in srgb, var(--brand) 70%, white);
+  --brand-tint: color-mix(in srgb, var(--brand) 10%, white);
+
+  --font-body: "Cairo", sans-serif;
+  --font-heading: "Playfair Display", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--bg);
+}
+
+.font-serif {
+  font-family: var(--font-heading);
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--brand);
+  color: #fff;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+img {
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
