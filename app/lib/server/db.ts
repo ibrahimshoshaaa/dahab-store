@@ -305,6 +305,7 @@ export async function initDb() {
   if (settingsCount.rows[0].count === 0) {
     const defaultSettings = {
       hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
+      hero_image_2: "",
       hero_label: "DAHAB COLLECTION",
       hero_title_line1: "أناقتك...",
       hero_title_line2: "بطابع دهب",

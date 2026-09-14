@@ -13,6 +13,7 @@ import StoreFooter from "./components/StoreFooter"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
+  hero_image_2: "",
   hero_label: "DAHAB COLLECTION",
   hero_title_line1: "أناقتك...",
   hero_title_line2: "بطابع دهب",
@@ -44,6 +45,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>(mockProducts)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
@@ -60,6 +62,19 @@ export default function Home() {
     [s(settings, "accessories_item3_title"), s(settings, "accessories_item3_image"), "/products?category=إكسسوارات"],
   ]
 
+  const heroImages = [s(settings, "hero_image"), s(settings, "hero_image_2")].filter(Boolean)
+
+  useEffect(() => {
+    if (heroImages.length < 2) {
+      setActiveHero(0)
+      return
+    }
+    const timer = window.setInterval(() => {
+      setActiveHero((current) => (current + 1) % heroImages.length)
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [heroImages.length])
+
   if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
@@ -75,18 +90,19 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <section className="relative min-h-[420px] overflow-hidden sm:min-h-[520px] lg:min-h-[680px]">
-
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('${s(settings, "hero_image")}')` }}
-        />
+        {heroImages.map((image, index) => (
+          <div
+            key={`${image}-${index}`}
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out ${index === activeHero ? "opacity-100" : "opacity-0"}`}
+            style={{ backgroundImage: `url('${image}')` }}
+            aria-hidden={index !== activeHero}
+          />
+        ))}
 
         <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/30 to-black/5" />
 
-        <div className="relative mx-auto flex min-h-[420px] max-w-7xl items-center px-6 sm:min-h-[520px] lg:min-h-[680px]">
-
+        <div className="relative mx-auto flex min-h-[420px] max-w-7xl items-center px-6 pb-24 sm:min-h-[520px] lg:min-h-[680px]">
           <div className="max-w-xl text-white">
-
             <p className="mb-5 text-xs tracking-[0.35em] text-[var(--brand-soft)]">
               {s(settings, "hero_label")}
             </p>
@@ -102,16 +118,31 @@ export default function Home() {
             <p className="mt-6 max-w-lg text-sm leading-8 text-white/80 sm:text-base">
               {s(settings, "hero_subtitle")}
             </p>
-
-            <a
-              href="#products"
-              className="mt-8 inline-flex items-center gap-4 bg-white px-7 py-4 text-sm text-[var(--ink)] transition hover:bg-[var(--brand-soft)]"
-            >
-              {s(settings, "hero_button_text")}
-              <ArrowLeft size={18} />
-            </a>
-
           </div>
+        </div>
+
+        <div className="absolute inset-x-0 bottom-6 z-10 flex flex-col items-center gap-3 px-5 sm:bottom-8">
+          <a
+            href="#products"
+            className="inline-flex items-center gap-3 rounded-full border border-white/45 bg-white/10 px-7 py-3.5 text-sm text-white shadow-lg backdrop-blur-md transition duration-300 hover:bg-white/20 hover:scale-[1.02]"
+          >
+            {s(settings, "hero_button_text")}
+            <ArrowLeft size={18} />
+          </a>
+
+          {heroImages.length > 1 && (
+            <div className="flex items-center gap-2" aria-label="صور الغلاف">
+              {heroImages.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setActiveHero(index)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${index === activeHero ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"}`}
+                  aria-label={`عرض الصورة ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

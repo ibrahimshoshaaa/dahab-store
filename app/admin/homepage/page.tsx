@@ -14,7 +14,8 @@ import ImageField from "../components/ImageField"
 
 const FIELD_LABELS: Record<string, string> = {
   announcement_bar:            "شريط الإعلان (أعلى الصفحة)",
-  hero_image:                  "Hero — الصورة الخلفية",
+  hero_image:                  "Hero — الصورة الأولى",
+  hero_image_2:                "Hero — الصورة الثانية (تتبدل كل 3 ثوانٍ)",
   hero_label:                  "Hero — النص الصغير (DAHAB COLLECTION)",
   hero_title_line1:            "Hero — السطر الأول من العنوان",
   hero_title_line2:            "Hero — السطر الثاني (باللون الذهبي)",
@@ -31,7 +32,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 const TEXTAREA_KEYS = new Set(["hero_subtitle", "announcement_bar"])
 const IMAGE_KEYS = new Set([
-  "hero_image",
+  "hero_image", "hero_image_2",
   "collection_abaya_image", "collection_accessories_image",
   "accessories_item1_image", "accessories_item3_image",
 ])

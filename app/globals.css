@@ -68,3 +68,44 @@ img {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+
+/* Mobile navigation entrance animations */
+@keyframes menuBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes menuPanelIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes menuItemIn {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.menu-backdrop {
+  animation: menuBackdropIn 240ms ease-out both;
+}
+
+.menu-panel {
+  animation: menuPanelIn 420ms cubic-bezier(.22,.8,.22,1) both;
+}
+
+.menu-item {
+  opacity: 0;
+  animation: menuItemIn 420ms cubic-bezier(.22,.8,.22,1) both;
+}
+
+.menu-item-1 { animation-delay: 80ms; }
+.menu-item-2 { animation-delay: 120ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-backdrop, .menu-panel, .menu-item {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}

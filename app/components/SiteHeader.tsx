@@ -79,13 +79,23 @@ export default function SiteHeader() {
         </div>
       </div>}
 
-      {mobileMenuOpen && <div className="fixed inset-0 z-[60] lg:hidden">
-        <div className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
-        <div className="absolute inset-y-0 right-0 flex w-72 max-w-[85%] flex-col bg-[var(--bg)] px-6 py-6 shadow-xl">
-          <div className="mb-8 flex items-center justify-between"><SiteLogo className="h-9 w-auto object-contain" /><button onClick={() => setMobileMenuOpen(false)} aria-label="إغلاق القائمة"><X size={22} strokeWidth={1.5} /></button></div>
-          <button onClick={() => { setMobileMenuOpen(false); setSearchOpen(true) }} className="mb-3 flex items-center gap-3 border-b border-black/5 py-4 text-base"><Search size={19} /> بحث عن منتج</button>
-          <nav className="flex flex-col gap-1">{NAV_LINKS.map(([href,label]) => <Link key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="border-b border-black/5 py-4 text-base">{label}</Link>)}</nav>
-          <div className="mt-auto flex items-center gap-5 pt-6"><Link href="/favorites" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-gray-600"><Heart size={18} /> المفضلة</Link><Link href="/cart" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-gray-600"><ShoppingBag size={18} /> السلة</Link></div>
+      {mobileMenuOpen && <div className="fixed inset-0 z-[60] overflow-hidden lg:hidden" role="dialog" aria-modal="true" aria-label="القائمة الرئيسية">
+        <div className="menu-backdrop absolute inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)} />
+        <div className="menu-panel absolute inset-y-0 right-0 flex w-72 max-w-[85%] flex-col bg-[var(--bg)] px-6 py-6 shadow-2xl">
+          <div className="menu-item menu-item-1 mb-8 flex items-center justify-between">
+            <SiteLogo className="h-9 w-auto object-contain" />
+            <button onClick={() => setMobileMenuOpen(false)} aria-label="إغلاق القائمة" className="rounded-full p-1 transition hover:bg-black/5"><X size={22} strokeWidth={1.5} /></button>
+          </div>
+          <button onClick={() => { setMobileMenuOpen(false); setSearchOpen(true) }} className="menu-item menu-item-2 mb-3 flex items-center gap-3 border-b border-black/5 py-4 text-base"><Search size={19} /> بحث عن منتج</button>
+          <nav className="flex flex-col gap-1">
+            {NAV_LINKS.map(([href,label], index) => (
+              <Link key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="menu-item border-b border-black/5 py-4 text-base transition-colors hover:text-[var(--brand)]" style={{ animationDelay: `${140 + index * 70}ms` }}>{label}</Link>
+            ))}
+          </nav>
+          <div className="menu-item mt-auto flex items-center gap-5 pt-6" style={{ animationDelay: `${140 + NAV_LINKS.length * 70}ms` }}>
+            <Link href="/favorites" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-gray-600"><Heart size={18} /> المفضلة</Link>
+            <Link href="/cart" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-gray-600"><ShoppingBag size={18} /> السلة</Link>
+          </div>
         </div>
       </div>}
     </>
