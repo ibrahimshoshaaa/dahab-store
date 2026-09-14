@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         { key: "X-DNS-Prefetch-Control", value: "on" },
+        // HTTPS is mandatory in production. HSTS tells browsers to keep using HTTPS.
+        { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
       ],
     }]
   },

@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   ArrowRight,
   Heart,
@@ -183,11 +184,14 @@ export default function ProductDetails({
               onTouchStart={handleGalleryTouchStart}
               onTouchEnd={handleGalleryTouchEnd}
             >
-              <img
+              <Image
                 src={galleryImages[activeImage] || product.image}
                 alt={product.name}
-                className="h-full w-full object-cover"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover"
                 draggable={false}
+                priority
               />
 
               <button
@@ -226,9 +230,12 @@ export default function ProductDetails({
                         : "border-transparent"
                     }`}
                   >
-                    <img
+                    <Image
                       src={img}
                       alt={`${product.name} ${index + 1}`}
+                      width={160}
+                      height={160}
+                      sizes="80px"
                       className="h-full w-full object-cover"
                     />
                   </button>
