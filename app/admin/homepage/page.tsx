@@ -16,9 +16,6 @@ const FIELD_LABELS: Record<string, string> = {
   hero_title_line2: "Hero — السطر الثاني الذهبي",
   hero_subtitle: "Hero — الوصف",
   hero_button_text: "Hero — نص الزر",
-  story_title_line1: "قسم القصة — السطر الأول",
-  story_title_line2: "قسم القصة — السطر الثاني",
-  story_body: "قسم القصة — النص",
   collection_abaya_image: "المجموعات — صورة العبايات",
   collection_accessories_image: "المجموعات — صورة الإكسسوارات",
   accessories_item1_title: "الإكسسوارات — اسم العنصر الأول",
@@ -26,7 +23,7 @@ const FIELD_LABELS: Record<string, string> = {
   footer_description: "الفوتر — وصف المتجر",
 }
 
-const TEXTAREA_KEYS = new Set(["announcement_bar", "hero_subtitle", "story_body"])
+const TEXTAREA_KEYS = new Set(["announcement_bar", "hero_subtitle"])
 const IMAGE_KEYS = new Set(["collection_abaya_image", "collection_accessories_image", "accessories_item1_image", "accessories_item3_image"])
 const TEXT_KEYS = Object.keys(FIELD_LABELS)
 

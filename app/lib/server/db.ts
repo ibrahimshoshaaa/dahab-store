@@ -319,10 +319,6 @@ export async function initDb() {
       hero_title_line2: "بطابع دهب",
       hero_subtitle: "عبايات مصرية بتصميمات راقية تجمع بين الاحتشام والأناقة وتناسب كل لحظة.",
       hero_button_text: "اكتشفي المجموعة",
-      story_title_line1: "لأن الأناقة",
-      story_title_line2: "تستحق أن تُحكى",
-      story_body: "في دهب نؤمن أن العباية ليست مجرد قطعة ملابس، بل تعبير عن شخصيتك. نقدم تصميمات مصرية معاصرة تجمع بين البساطة والفخامة.",
-      story_image: "https://images.unsplash.com/photo-1591369822096-ffd140ec948f?auto=format&fit=crop&w=1200&q=90",
       collection_abaya_image: "https://images.unsplash.com/photo-1591369822096-ffd140ec948f?auto=format&fit=crop&w=1200&q=90",
       collection_accessories_image: "https://images.unsplash.com/photo-1617038220319-276d3cfab638?auto=format&fit=crop&w=1200&q=90",
       accessories_item1_title: "حقائب",
@@ -340,6 +336,9 @@ export async function initDb() {
       await db.execute({ sql: "INSERT INTO settings (key,value) VALUES (?,?)", args: [key, value] })
     }
   }
+
+  // Remove the retired Story section from existing installations.
+  await db.execute({ sql: "DELETE FROM settings WHERE key IN (?,?,?,?)", args: ["story_title_line1", "story_title_line2", "story_body", "story_image"] })
 
   // Migrate older installations to the multi-image Hero slider settings.
   const legacyHero = await db.execute({ sql: "SELECT value FROM settings WHERE key=?", args: ["hero_image"] })
