@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react"
+import SiteLogo from "../../components/SiteLogo"
 
 const groups = [
   {
@@ -66,8 +67,8 @@ export default function AdminHeader({
     <header className="sticky top-0 z-40 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`mx-auto flex ${maxWidthClass} items-center justify-between px-4 py-4 sm:px-5`}>
         <Link href="/admin" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <span className="font-serif text-xl tracking-[0.18em] sm:text-2xl">DAHAB</span>
-          <span className="h-5 w-px bg-black/10" />
+          <SiteLogo className="h-9 w-auto object-contain sm:h-10" alt="DAHAB" />
+          <span className="h-6 w-px bg-black/10" />
           <span className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
             <LayoutDashboard size={16} />
             لوحة التحكم

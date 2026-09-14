@@ -305,7 +305,15 @@ export async function initDb() {
   if (settingsCount.rows[0].count === 0) {
     const defaultSettings = {
       hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
+      hero_image_1: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
       hero_image_2: "",
+      hero_image_3: "",
+      hero_image_4: "",
+      hero_image_5: "",
+      hero_image_6: "",
+      hero_image_7: "",
+      hero_image_8: "",
+      hero_interval_seconds: "3",
       hero_label: "DAHAB COLLECTION",
       hero_title_line1: "أناقتك...",
       hero_title_line2: "بطابع دهب",
@@ -331,6 +339,18 @@ export async function initDb() {
     for (const [key, value] of Object.entries(defaultSettings)) {
       await db.execute({ sql: "INSERT INTO settings (key,value) VALUES (?,?)", args: [key, value] })
     }
+  }
+
+  // Migrate older installations to the multi-image Hero slider settings.
+  const legacyHero = await db.execute({ sql: "SELECT value FROM settings WHERE key=?", args: ["hero_image"] })
+  const heroDefaults: Record<string, string> = {
+    hero_image_1: String((legacyHero.rows[0] as any)?.value || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90"),
+    hero_image_2: "", hero_image_3: "", hero_image_4: "",
+    hero_image_5: "", hero_image_6: "", hero_image_7: "", hero_image_8: "",
+    hero_interval_seconds: "3",
+  }
+  for (const [key, value] of Object.entries(heroDefaults)) {
+    await db.execute({ sql: "INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)", args: [key, value] })
   }
 }
 

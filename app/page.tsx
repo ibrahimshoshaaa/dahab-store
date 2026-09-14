@@ -13,7 +13,15 @@ import StoreFooter from "./components/StoreFooter"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
+  hero_image_1: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
   hero_image_2: "",
+  hero_image_3: "",
+  hero_image_4: "",
+  hero_image_5: "",
+  hero_image_6: "",
+  hero_image_7: "",
+  hero_image_8: "",
+  hero_interval_seconds: "3",
   hero_label: "DAHAB COLLECTION",
   hero_title_line1: "أناقتك...",
   hero_title_line2: "بطابع دهب",
@@ -62,7 +70,13 @@ export default function Home() {
     [s(settings, "accessories_item3_title"), s(settings, "accessories_item3_image"), "/products?category=إكسسوارات"],
   ]
 
-  const heroImages = [s(settings, "hero_image"), s(settings, "hero_image_2")].filter(Boolean)
+  const heroImages = Array.from({ length: 8 }, (_, index) => {
+    const key = `hero_image_${index + 1}`
+    if (index === 0) return settings.hero_image_1 || settings.hero_image || s(settings, key)
+    return settings[key] || ""
+  }).filter(Boolean)
+  // توافق مع الإصدارات القديمة التي كانت تستخدم hero_image بدل hero_image_1.
+  if (!heroImages.length && s(settings, "hero_image")) heroImages.push(s(settings, "hero_image"))
 
   useEffect(() => {
     if (heroImages.length < 2) {
@@ -71,9 +85,9 @@ export default function Home() {
     }
     const timer = window.setInterval(() => {
       setActiveHero((current) => (current + 1) % heroImages.length)
-    }, 3000)
+    }, Math.min(60000, Math.max(1000, Number(settings.hero_interval_seconds || 3) * 1000)))
     return () => window.clearInterval(timer)
-  }, [heroImages.length])
+  }, [heroImages.length, settings.hero_interval_seconds])
 
   if (!isLoaded) {
     return (
