@@ -35,13 +35,21 @@ export const metadata: Metadata = {
   applicationName: "DAHAB",
   keywords: ["دهب", "Dahab", "عبايات", "عبايات مصرية", "إكسسوارات"],
   alternates: { canonical: "/" },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dahab-seven.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.ninetypay.com"),
   openGraph: {
     title: "DAHAB | دهب",
     description: "عبايات مصرية وإكسسوارات مختارة بعناية.",
     type: "website",
     locale: "ar_EG",
+    url: "/",
+    siteName: "DAHAB",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "DAHAB | دهب",
+    description: "عبايات مصرية وإكسسوارات مختارة بعناية.",
+  },
+  robots: { index: true, follow: true },
 }
 
 export default async function RootLayout({

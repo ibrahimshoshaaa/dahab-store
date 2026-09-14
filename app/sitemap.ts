@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 import { db, ensureDb } from "./lib/server/db"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://dahab-seven.vercel.app"
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.ninetypay.com"
   let products: any[] = []
 
   try {
