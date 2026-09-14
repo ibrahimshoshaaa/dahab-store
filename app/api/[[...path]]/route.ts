@@ -29,7 +29,13 @@ function numberParam(value: string | undefined) {
 
 async function handle(request: Request, method: string, path: string[]) {
   await ensureDb()
-  const body = ["GET", "HEAD"].includes(method) ? {} : await readJson(request)
+  const contentType = request.headers.get("content-type") || ""
+
+const body =
+  ["GET", "HEAD"].includes(method) ||
+  contentType.includes("multipart/form-data")
+    ? {}
+    : await readJson(request)
   const url = new URL(request.url)
   const p = path.map(decodeURIComponent)
   const keyPath=p.join("/")
