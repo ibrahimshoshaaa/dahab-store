@@ -36,9 +36,14 @@ export default function StoreFooter() {
           </div>
         </div>
       </div>
-      <div className="mx-auto mt-14 flex max-w-7xl items-center justify-between border-t border-white/10 pt-6 text-[11px] text-white/30">
-        <span>© 2026 DAHAB — جميع الحقوق محفوظة</span>
-        <Link href="#" className="flex items-center gap-2 hover:text-white"><ArrowUp size={14} /> للأعلى</Link>
+      <div className="mx-auto mt-14 flex max-w-7xl flex-col items-center gap-4 border-t border-white/10 pt-6 text-[11px] text-white/30">
+        <div className="flex w-full items-center justify-between">
+          <span>© 2026 DAHAB — جميع الحقوق محفوظة</span>
+          <Link href="#" className="flex items-center gap-2 hover:text-white"><ArrowUp size={14} /> للأعلى</Link>
+        </div>
+        <div className="text-center text-[11px] text-white/25">
+          تم تطويره بواسطة <span className="font-medium text-[var(--brand)]">ShoTech Solutions</span>
+        </div>
       </div>
     </footer>
   )
