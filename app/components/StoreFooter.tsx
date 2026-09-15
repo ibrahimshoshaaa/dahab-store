@@ -42,7 +42,7 @@ export default function StoreFooter() {
           <Link href="#" className="flex items-center gap-2 hover:text-white"><ArrowUp size={14} /> للأعلى</Link>
         </div>
         <div className="text-center text-[11px] text-white/25">
-          تم تطويره بواسطة <span className="font-medium text-[var(--brand)]">ShoTech Solutions</span>
+          تم تطويره بواسطة <a href="https://ShoTech.vercel.app" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--brand)] hover:underline">ShoTech Solutions</a>
         </div>
       </div>
     </footer>
