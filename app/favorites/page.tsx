@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowRight, ArrowLeft, Heart, Trash2, ShoppingBag } from "lucide-react"
 import { useFavorites } from "../context/FavoritesContext"
 import { useCart } from "../context/CartContext"
@@ -69,10 +70,12 @@ export default function FavoritesPage() {
                     href={`/products/${product.slug}`}
                     className="block aspect-[3/4]"
                   >
-                    <img
+                    <Image
                       src={product.image}
                       alt={product.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      className="object-cover transition duration-500 group-hover:scale-105"
                     />
                   </Link>
 
