@@ -127,6 +127,7 @@ export type OrderPayload = {
   notes?: string
   total: number
   coupon_code?: string
+  idempotency_key?: string
   items: {
     product_id: number
     product_name: string
@@ -138,6 +139,11 @@ export type OrderPayload = {
 }
 
 export async function createOrder(payload: OrderPayload) {
+  const key = payload.idempotency_key || (typeof window !== "undefined" ? (sessionStorage.getItem("dahab-order-idempotency-key") || (() => {
+    const value = crypto.randomUUID()
+    sessionStorage.setItem("dahab-order-idempotency-key", value)
+    return value
+  })()) : undefined)
   const res = await fetch(`${API_URL}/api/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
