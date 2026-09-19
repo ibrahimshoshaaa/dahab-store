@@ -21,10 +21,15 @@ export async function fetchProductsRequired(): Promise<ApiProduct[]> {
   }
 
   const request = (async () => {
-    const res = await fetch(`${API_URL}/api/products`, { next: { revalidate: 60, tags: ["products"] } })
-    const data = await res.json()
-    if (!res.ok || !data.success) throw new Error(data.message || "تعذر تحميل المنتجات")
-    return data.products as ApiProduct[]
+    try {
+      const res = await fetch(`${API_URL}/api/products`, { next: { revalidate: 60, tags: ["products"] } })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.message || "تعذر تحميل المنتجات")
+      return data.products as ApiProduct[]
+    } catch (error) {
+      clientRequiredProductsCache = null
+      throw error
+    }
   })()
 
   if (typeof window !== "undefined") {
@@ -314,10 +319,15 @@ export async function fetchSettingsRequired(): Promise<SiteSettings> {
   }
 
   const request = (async () => {
-    const res = await fetch(`${API_URL}/api/settings`, { next: { revalidate: 60, tags: ["settings"] } })
-    const data = await res.json()
-    if (!res.ok || !data.success) throw new Error(data.message || "تعذر تحميل إعدادات الموقع")
-    return data.settings as SiteSettings
+    try {
+      const res = await fetch(`${API_URL}/api/settings`, { next: { revalidate: 60, tags: ["settings"] } })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.message || "تعذر تحميل إعدادات الموقع")
+      return data.settings as SiteSettings
+    } catch (error) {
+      clientRequiredSettingsCache = null
+      throw error
+    }
   })()
 
   if (typeof window !== "undefined") {
