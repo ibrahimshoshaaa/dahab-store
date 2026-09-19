@@ -26,6 +26,20 @@ function numberParam(value: string | undefined) {
   return Number.isInteger(n) && n > 0 ? n : null
 }
 
+function normalizeVariantStock(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  const result: Record<string, number> = {}
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const n = Number(raw)
+    if (Number.isFinite(n)) result[String(key)] = Math.max(0, Math.floor(n))
+  }
+  return result
+}
+
+function totalVariantStock(value: Record<string, number>) {
+  return Object.values(value).reduce((sum, n) => sum + n, 0)
+}
+
 async function handle(request: Request, method: string, path: string[]) {
   await ensureDb()
   const contentType = request.headers.get("content-type") || ""
@@ -188,7 +202,7 @@ const body =
       )
       if (invalid) return json({ success: false, message: "بيانات السلة غير صحيحة" }, 400)
 
-      const ids = [...new Set(normalized.map((item: any) => item.product_id))]
+      const ids: number[] = Array.from(new Set(normalized.map((item: any) => Number(item.product_id))))
       const result = await db.execute(
         `SELECT id, stock, active, variant_stock FROM products WHERE id IN (${ids.map(() => "?").join(",")})`,
         ids
