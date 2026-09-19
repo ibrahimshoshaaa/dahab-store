@@ -68,7 +68,7 @@ export function getAdminTokenFromRequest(request: Request) {
   const bearer = getBearerToken(request)
   if (bearer) return bearer
   const cookie = request.headers.get("cookie") || ""
-  const match = cookie.match(/(?:^|;\\s*)dahab_admin_token=([^;]+)/)
+  const match = cookie.match(/(?:^|;\s*)dahab_admin_token=([^;]+)/)
   return match ? decodeURIComponent(match[1]) : null
 }
 
