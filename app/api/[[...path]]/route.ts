@@ -301,8 +301,103 @@ const body =
     }
   }
 
+  // ---------- admin dashboard summary ----------
+  if (p.join("/") === "admin/orders/summary" && method === "GET") {
+    const denied = await adminGuard(request); if (denied) return denied
+    try {
+      const rawOffset = Number(url.searchParams.get("tzOffsetMinutes") || 0)
+      const tzOffset = Number.isFinite(rawOffset) ? Math.max(-840, Math.min(840, Math.trunc(rawOffset))) : 0
+      const modifier = `${tzOffset <= 0 ? "+" : "-"}${Math.abs(tzOffset)} minutes`
+      const localDate = `date(created_at, '${modifier}')`
+      const today = `date('now', '${modifier}')`
+      const weekStart = `date('now', '${modifier}', '-6 days')`
+
+      const [aggregateResult, statusResult, daysResult, topProductsResult, recentResult] = await Promise.all([
+        db.execute({
+          sql: `SELECT COUNT(*) AS total_orders, SUM(CASE WHEN status != 'ملغي' THEN 1 ELSE 0 END) AS valid_orders, COALESCE(SUM(CASE WHEN status != 'ملغي' THEN total ELSE 0 END),0) AS all_revenue, SUM(CASE WHEN status != 'ملغي' AND ${localDate} = ${today} THEN 1 ELSE 0 END) AS today_orders, COALESCE(SUM(CASE WHEN status != 'ملغي' AND ${localDate} = ${today} THEN total ELSE 0 END),0) AS today_revenue, SUM(CASE WHEN status != 'ملغي' AND ${localDate} BETWEEN ${weekStart} AND ${today} THEN 1 ELSE 0 END) AS week_orders, COALESCE(SUM(CASE WHEN status != 'ملغي' AND ${localDate} BETWEEN ${weekStart} AND ${today} THEN total ELSE 0 END),0) AS week_revenue FROM orders`,
+          args: [],
+        }),
+        db.execute({ sql: "SELECT status, COUNT(*) AS count FROM orders GROUP BY status", args: [] }),
+        db.execute({
+          sql: `SELECT ${localDate} AS date, COUNT(*) AS orders, COALESCE(SUM(CASE WHEN status != 'ملغي' THEN total ELSE 0 END),0) AS revenue FROM orders WHERE ${localDate} BETWEEN ${weekStart} AND ${today} GROUP BY ${localDate} ORDER BY date ASC`,
+          args: [],
+        }),
+        db.execute({
+          sql: `SELECT oi.product_name AS name, SUM(oi.quantity) AS quantity, COALESCE(SUM(oi.price * oi.quantity),0) AS revenue FROM order_items oi INNER JOIN orders o ON o.id = oi.order_id WHERE o.status != 'ملغي' GROUP BY oi.product_name ORDER BY quantity DESC, revenue DESC LIMIT 5`,
+          args: [],
+        }),
+        db.execute({ sql: "SELECT id,customer_name,phone,total,status,tracking_code,created_at FROM orders ORDER BY id DESC LIMIT 6", args: [] }),
+      ])
+
+      const recentRows = recentResult.rows as any[]
+      const recentIds = recentRows.map((row) => Number(row.id))
+      let itemRows: any[] = []
+      if (recentIds.length) {
+        const itemsResult = await db.execute(`SELECT id,order_id,product_id,product_name,price,quantity,selected_color,selected_size FROM order_items WHERE order_id IN (${recentIds.map(() => "?").join(",")}) ORDER BY id ASC`, recentIds)
+        itemRows = itemsResult.rows as any[]
+      }
+      const itemsByOrder = new Map<number, any[]>()
+      for (const item of itemRows) { const key = Number(item.order_id); const list = itemsByOrder.get(key) || []; list.push(item); itemsByOrder.set(key, list) }
+      const recentOrders = recentRows.map((order) => ({ ...order, items: itemsByOrder.get(Number(order.id)) || [] }))
+      const aggregate = (aggregateResult.rows as any[])[0] || {}
+      const statusCounts: Record<string, number> = {}
+      for (const row of statusResult.rows as any[]) statusCounts[String(row.status)] = Number(row.count || 0)
+      const days = (daysResult.rows as any[]).map((row) => ({ date: String(row.date), orders: Number(row.orders || 0), revenue: Number(row.revenue || 0) }))
+      const topProducts = (topProductsResult.rows as any[]).map((row) => ({ name: String(row.name || ""), quantity: Number(row.quantity || 0), revenue: Number(row.revenue || 0) }))
+      const todayOrders = Number(aggregate.today_orders || 0)
+      const todayRevenue = Number(aggregate.today_revenue || 0)
+      return json({ success: true, stats: { totalOrders: Number(aggregate.total_orders || 0), validOrders: Number(aggregate.valid_orders || 0), allRevenue: Number(aggregate.all_revenue || 0), todayOrders, todayRevenue, weekOrders: Number(aggregate.week_orders || 0), weekRevenue: Number(aggregate.week_revenue || 0), averageToday: todayOrders ? todayRevenue / todayOrders : 0, newOrders: statusCounts["جديد"] || 0, preparing: statusCounts["جاري التجهيز"] || 0, shipping: statusCounts["تم الشحن"] || 0, delivered: statusCounts["تم التسليم"] || 0, canceled: statusCounts["ملغي"] || 0 }, statusCounts, days, topProducts, recentOrders })
+    } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب ملخص الداشبورد" }, 500) }
+  }
   // ---------- orders ----------
-  if (p.join("/") === "orders" && method === "GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT id,customer_name,phone,governorate,area,address,notes,total,status,tracking_code,created_at FROM orders ORDER BY id DESC");const orderRows=result.rows as any[];const ids=orderRows.map(order=>Number(order.id));let itemRows:any[]=[];if(ids.length){const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids);itemRows=itemsResult.rows as any[]}const itemsByOrder=new Map<number,any[]>();for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)} }
+  if (p.join("/") === "orders" && method === "GET") {
+    const denied=await adminGuard(request); if(denied)return denied
+    try {
+      const page=Math.max(1,Math.floor(Number(url.searchParams.get("page")||1)))
+      const limit=Math.min(50,Math.max(10,Math.floor(Number(url.searchParams.get("limit")||20))))
+      const offset=(page-1)*limit
+      const q=String(url.searchParams.get("q")||"").trim()
+      const status=String(url.searchParams.get("status")||"").trim()
+      const sort=String(url.searchParams.get("sort")||"newest")
+      const where:string[]=[]
+      const args:any[]=[]
+      if(status && allowedStatuses.includes(status)){where.push("o.status=?");args.push(status)}
+      if(q){
+        where.push("(o.customer_name LIKE ? OR o.phone LIKE ? OR CAST(o.id AS TEXT) LIKE ? OR COALESCE(o.tracking_code,'') LIKE ? OR o.governorate LIKE ? OR o.area LIKE ? OR o.address LIKE ? OR EXISTS (SELECT 1 FROM order_items qi WHERE qi.order_id=o.id AND (qi.product_name LIKE ? OR COALESCE(qi.selected_color,'') LIKE ? OR COALESCE(qi.selected_size,'') LIKE ?)))")
+        const term=`%${q}%`
+        args.push(term,term,term,term,term,term,term,term,term,term)
+      }
+      const whereSql=where.length ? " WHERE "+where.join(" AND ") : ""
+      const orderSql=sort==="oldest"?"o.id ASC":sort==="highest"?"o.total DESC, o.id DESC":sort==="lowest"?"o.total ASC, o.id DESC":"o.id DESC"
+      const summaryWhere:string[]=[]
+      const summaryArgs:any[]=[]
+      if(q){
+        summaryWhere.push("(o.customer_name LIKE ? OR o.phone LIKE ? OR CAST(o.id AS TEXT) LIKE ? OR COALESCE(o.tracking_code,'') LIKE ? OR o.governorate LIKE ? OR o.area LIKE ? OR o.address LIKE ? OR EXISTS (SELECT 1 FROM order_items qi WHERE qi.order_id=o.id AND (qi.product_name LIKE ? OR COALESCE(qi.selected_color,'') LIKE ? OR COALESCE(qi.selected_size,'') LIKE ?)))")
+        const summaryTerm=`%${q}%`
+        summaryArgs.push(summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm)
+      }
+      const summaryWhereSql=summaryWhere.length ? " WHERE "+summaryWhere.join(" AND ") : ""
+      const [countResult,rowsResult,summaryResult]=await Promise.all([
+        db.execute({sql:"SELECT COUNT(*) AS count FROM orders o"+whereSql,args}),
+        db.execute({sql:"SELECT id,customer_name,phone,governorate,area,address,notes,total,status,tracking_code,created_at FROM orders o"+whereSql+" ORDER BY "+orderSql+" LIMIT ? OFFSET ?",args:[...args,limit,offset]}),
+        db.execute({sql:"SELECT status,COUNT(*) AS count,COALESCE(SUM(CASE WHEN status!='ملغي' THEN total ELSE 0 END),0) AS revenue FROM orders o"+summaryWhereSql+" GROUP BY status",args:summaryArgs}),
+      ])
+      const orderRows=rowsResult.rows as any[]
+      const ids=orderRows.map(order=>Number(order.id))
+      let itemRows:any[]=[]
+      if(ids.length){
+        const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids)
+        itemRows=itemsResult.rows as any[]
+      }
+      const itemsByOrder=new Map<number,any[]>()
+      for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}
+      const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}))
+      const total=Number((countResult.rows as any[])[0]?.count||0)
+      const summary:any={all:0,revenue:0}
+      for(const row of summaryResult.rows as any[]){const count=Number(row.count||0);summary[row.status]=count;summary.all+=count;summary.revenue+=Number(row.revenue||0)}
+      return json({success:true,orders,pagination:{page,limit,total,totalPages:Math.max(1,Math.ceil(total/limit))},summary})
+    }catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)}
+  }
 
   if (p.join("/") === "orders" && method === "POST") {
     let tx:any=null
@@ -322,7 +417,27 @@ const body =
       let trackingCode=generateTrackingCode(); for(let i=0;i<5;i++){const c=await tx.execute({sql:"SELECT 1 FROM orders WHERE tracking_code=?",args:[trackingCode]});if(!c.rows[0])break;trackingCode=generateTrackingCode()}
       const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[customer_name,phone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
       for(const item of normalized)await tx.execute({sql:"INSERT INTO order_items(order_id,product_id,product_name,price,quantity,selected_color,selected_size) VALUES(?,?,?,?,?,?,?)",args:[orderId,item.product_id,item.product_name,item.price,item.quantity,item.selected_color,item.selected_size]})
-      for(const [id,qty] of quantities){const product:any=products.get(id),vs=safeJsonParse<any>(product.variant_stock,{});if(Object.keys(vs).length){for(const item of normalized.filter(x=>x.product_id===id)){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`;vs[key]=Number(vs[key]||0)-item.quantity;if(vs[key]<0)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}const u=await tx.execute({sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=?",args:[totalVariantStock(vs),JSON.stringify(vs),id]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}else{const u=await tx.execute({sql:"UPDATE products SET stock=stock-? WHERE id=? AND stock>=?",args:[qty,id,qty]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}
+      for(const [id,qty] of quantities){
+        const product:any=products.get(id)
+        const originalVariantStock=String(product.variant_stock ?? "{}")
+        const vs=safeJsonParse<any>(originalVariantStock,{})
+        if(Object.keys(vs).length){
+          for(const item of normalized.filter(x=>x.product_id===id)){
+            const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`
+            vs[key]=Number(vs[key]||0)-item.quantity
+            if(vs[key]<0)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})
+          }
+          const nextVariantStock=JSON.stringify(vs)
+          const u=await tx.execute({
+            sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=? AND variant_stock=?",
+            args:[totalVariantStock(vs),nextVariantStock,id,originalVariantStock],
+          })
+          if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})
+        }else{
+          const u=await tx.execute({sql:"UPDATE products SET stock=stock-? WHERE id=? AND stock>=?",args:[qty,id,qty]})
+          if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})
+        }
+      }
       if(coupon){const u=await tx.execute({sql:"UPDATE coupons SET used_count=used_count+1 WHERE id=? AND (max_uses=0 OR used_count<max_uses)",args:[coupon.id]});if(u.rowsAffected!==1)throw Object.assign(new Error("COUPON_EXHAUSTED"),{code:"BAD_COUPON"})}
       await tx.execute({sql:"INSERT INTO analytics_events(event_type,path,session_id,metadata) VALUES(?,?,?,?)",args:["purchase","/checkout",null,JSON.stringify({order_id:orderId,total:finalTotal})]})
       await tx.commit(); tx=null
@@ -339,7 +454,19 @@ const body =
   if (p.length===4&&p[0]==="admin"&&p[1]==="customers"&&p[3]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const phone=String(p[2]||"").trim();if(!phone)return json({success:false,message:"رقم الهاتف غير صحيح"},400);const result=await db.execute({sql:"SELECT id,customer_name,phone,governorate,area,address,notes,total,status,tracking_code,created_at FROM orders WHERE phone=? ORDER BY id DESC",args:[phone]});const orderRows=result.rows as any[];const ids=orderRows.map(order=>Number(order.id));let itemRows:any[]=[];if(ids.length){const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids);itemRows=itemsResult.rows as any[]}const itemsByOrder=new Map<number,any[]>();for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب طلبات العميل"},500)} }
 
   // ---------- contact ----------
-  if (p.join("/")==="contact"&&method==="POST") { try{const b:any=body;if(!b?.name||!b?.phone||!b?.message)return json({success:false,message:"من فضلك أكملي كل الحقول"},400);const r=await db.execute({sql:"INSERT INTO contact_messages(name,phone,message) VALUES(?,?,?)",args:[b.name,b.phone,b.message]});return json({success:true,id:Number(r.lastInsertRowid)})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء إرسال الرسالة"},500)} }
+  if (p.join("/")==="contact"&&method==="POST") {
+    try{
+      const b:any=body
+      const name=String(b?.name||"").trim()
+      const phone=String(b?.phone||"").trim()
+      const message=String(b?.message||"").trim()
+      if(!name||!phone||!message)return json({success:false,message:"من فضلك أكملي كل الحقول"},400)
+      if(name.length>80||phone.length>30||message.length>1000)return json({success:false,message:"البيانات المدخلة طويلة جدًا"},400)
+      if(!/^[0-9+()\s.-]{7,30}$/.test(phone))return json({success:false,message:"رقم الهاتف غير صحيح"},400)
+      const r=await db.execute({sql:"INSERT INTO contact_messages(name,phone,message) VALUES(?,?,?)",args:[name,phone,message]})
+      return json({success:true,id:Number(r.lastInsertRowid)})
+    }catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء إرسال الرسالة"},500)}
+  }
   if (p.join("/")==="admin/contact-messages"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const r=await db.execute("SELECT * FROM contact_messages ORDER BY id DESC");return json({success:true,messages:r.rows})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الرسائل"},500)} }
   if (p.length===4&&p[0]==="admin"&&p[1]==="contact-messages"&&p[3]==="read"&&method==="PATCH") { const denied=await adminGuard(request);if(denied)return denied;try{await db.execute({sql:"UPDATE contact_messages SET is_read=1 WHERE id=?",args:[p[2]]});return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء التحديث"},500)} }
   if (p.length===3&&p[0]==="admin"&&p[1]==="contact-messages"&&method==="DELETE") { const denied=await adminGuard(request);if(denied)return denied;try{await db.execute({sql:"DELETE FROM contact_messages WHERE id=?",args:[p[2]]});return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء الحذف"},500)} }

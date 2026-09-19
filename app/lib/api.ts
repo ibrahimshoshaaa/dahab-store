@@ -222,9 +222,55 @@ export function adminLogout() {
   adminFetch("/api/admin/logout", { method: "POST" }).catch(() => {})
 }
 
-export async function fetchAdminOrders() {
-  const data = await adminFetch("/api/orders")
-  return data.orders as Record<string, unknown>[]
+export type AdminOrdersResult = {
+  orders: Record<string, unknown>[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+  summary: Record<string, number>
+}
+
+export async function fetchAdminOrders(options: { page?: number; limit?: number; search?: string; status?: string; sort?: string } = {}): Promise<AdminOrdersResult> {
+  const params = new URLSearchParams()
+  if (options.page) params.set("page", String(options.page))
+  if (options.limit) params.set("limit", String(options.limit))
+  if (options.search) params.set("q", options.search)
+  if (options.status && options.status !== "الكل") params.set("status", options.status)
+  if (options.sort === "الأقدم") params.set("sort", "oldest")
+  if (options.sort === "الأعلى سعرًا") params.set("sort", "highest")
+  if (options.sort === "الأقل سعرًا") params.set("sort", "lowest")
+  const data = await adminFetch(`/api/orders${params.toString() ? `?${params.toString()}` : ""}`)
+  return {
+    orders: data.orders as Record<string, unknown>[],
+    pagination: data.pagination,
+    summary: data.summary,
+  }
+}
+
+export type AdminDashboardSummary = {
+  stats: {
+    totalOrders: number
+    validOrders: number
+    allRevenue: number
+    todayOrders: number
+    todayRevenue: number
+    weekOrders: number
+    weekRevenue: number
+    averageToday: number
+    newOrders: number
+    preparing: number
+    shipping: number
+    delivered: number
+    canceled: number
+  }
+  statusCounts: Record<string, number>
+  days: { date: string; orders: number; revenue: number }[]
+  topProducts: { name: string; quantity: number; revenue: number }[]
+  recentOrders: Record<string, unknown>[]
+}
+
+export async function fetchAdminDashboardSummary(): Promise<AdminDashboardSummary> {
+  const tzOffsetMinutes = typeof window !== "undefined" ? new Date().getTimezoneOffset() : 0
+  const data = await adminFetch(`/api/admin/orders/summary?tzOffsetMinutes=${encodeURIComponent(String(tzOffsetMinutes))}`)
+  return data as AdminDashboardSummary
 }
 
 export async function updateOrderStatus(id: number, status: string) {
