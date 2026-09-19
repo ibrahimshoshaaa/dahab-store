@@ -71,8 +71,24 @@ export default function CheckoutPage() {
   const [couponLoading, setCouponLoading] = useState(false)
 
   useEffect(() => {
-    if (cart.length) trackEvent({event_type:"begin_checkout",path:"/checkout",metadata:{items:cart.length}})
-  }, [])
+    if (!cart.length) return
+
+    const send = () => {
+      trackEvent({
+        event_type: "begin_checkout",
+        path: "/checkout",
+        metadata: { items: cart.length },
+      })
+    }
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(send, { timeout: 1200 })
+      return () => window.cancelIdleCallback(idleId)
+    }
+
+    const timeoutId = globalThis.setTimeout(send, 500)
+    return () => globalThis.clearTimeout(timeoutId)
+  }, [cart.length])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

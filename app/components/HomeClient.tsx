@@ -3,13 +3,13 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import type { SiteSettings, ApiProduct } from "../lib/api"
-import { fetchProducts, fetchSettings } from "../lib/api"
+import { fetchProductsRequired, fetchSettingsRequired } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import ProductCardImages from "./ProductCardImages"
 import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lucide-react"
-import PageLoading from "./PageLoading"
 import SiteHeader from "./SiteHeader"
 import StoreFooter from "./StoreFooter"
+import PageLoading from "./PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
@@ -54,7 +54,8 @@ export default function HomeClient() {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchProducts(), fetchSettings()])
+
+    Promise.all([fetchProductsRequired(), fetchSettingsRequired()])
       .then(([data, nextSettings]) => {
         if (cancelled) return
         setProducts(data)
@@ -62,14 +63,13 @@ export default function HomeClient() {
         setIsLoaded(true)
       })
       .catch(() => {
-        if (!cancelled) setIsLoaded(true)
+        // Keep loading instead of presenting fallback defaults as real store data.
       })
+
     return () => { cancelled = true }
   }, [])
 
-  const resolvedSettings: SiteSettings = Object.keys(settings).length
-    ? { ...DEFAULT_SETTINGS, ...settings }
-    : DEFAULT_SETTINGS
+  const resolvedSettings: SiteSettings = { ...DEFAULT_SETTINGS, ...settings }
 
   const accessoryItems = [
     [s(resolvedSettings, "accessories_item1_title"), s(resolvedSettings, "accessories_item1_image"), "/products?category=إكسسوارات"],
@@ -172,7 +172,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Collection grid ── */}
-      <section className="mx-auto max-w-7xl px-5 py-12 sm:py-16 md:py-20">
+      <section className="content-auto mx-auto max-w-7xl px-5 py-12 sm:py-16 md:py-20">
 
         <div className="mb-8 text-center sm:mb-12">
           <p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">
@@ -287,7 +287,7 @@ export default function HomeClient() {
 
       {/* ── Best sellers ── */}
       {products.some((p) => p.bestSeller) && (
-        <section className="mx-auto max-w-7xl px-5 py-20">
+        <section className="content-auto mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 flex items-end justify-between">
             <div><p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">DAHAB FAVORITES</p><h2 className="text-3xl font-light sm:text-4xl">الأكثر مبيعًا</h2><p className="mt-3 text-sm text-gray-500">اختيارات بتحبها عميلات دهب.</p></div>
             <Link href="/products" className="hidden text-sm sm:block">كل المنتجات ←</Link>
@@ -299,7 +299,7 @@ export default function HomeClient() {
       )}
 
       {/* ── Brand promise ── */}
-      <section className="bg-[var(--ink)] px-5 py-16 text-white">
+      <section className="content-auto bg-[var(--ink)] px-5 py-16 text-white">
         <div className="mx-auto grid max-w-5xl gap-8 text-center md:grid-cols-3 md:text-right">
           <div><p className="text-[11px] tracking-[0.25em] text-[var(--brand-soft)]">DAHAB QUALITY</p><h3 className="mt-2 text-xl font-light">تفاصيل تستحق الاختيار</h3><p className="mt-2 text-sm leading-7 text-white/60">تصميمات مختارة بعناية عشان كل قطعة تحسسك بالفرق.</p></div>
           <div><p className="text-[11px] tracking-[0.25em] text-[var(--brand-soft)]">EASY ORDER</p><h3 className="mt-2 text-xl font-light">اطلبيها في دقائق</h3><p className="mt-2 text-sm leading-7 text-white/60">اختاري، أضيفي للسلة، وسيبي علينا الباقي.</p></div>
@@ -337,7 +337,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Features bar ── */}
-      <section className="border-y border-black/5 bg-white">
+      <section className="content-auto border-y border-black/5 bg-white">
         <div className="mx-auto grid max-w-7xl grid-cols-2 md:grid-cols-4">
           {[
             [Truck, "شحن سريع", "لجميع المحافظات"],
@@ -358,7 +358,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Newsletter ── */}
-      <section className="bg-[var(--surface)] px-5 py-20 text-center">
+      <section className="content-auto bg-[var(--surface)] px-5 py-20 text-center">
         <p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">STAY IN TOUCH</p>
         <h2 className="text-3xl font-light">كوني أول من يعرف جديد دهب</h2>
         <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-gray-500">
