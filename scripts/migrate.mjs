@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT NOT NULL, phone TEXT NOT NULL,
   governorate TEXT NOT NULL, area TEXT NOT NULL, address TEXT NOT NULL, notes TEXT,
   total REAL NOT NULL, status TEXT NOT NULL DEFAULT 'جديد', tracking_code TEXT,
+  idempotency_key TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS order_items (
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   path TEXT, session_id TEXT, metadata TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tracking_code ON orders(tracking_code);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idempotency_key ON orders(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_products_active_id ON products(active, id DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_phone_id ON orders(phone, id DESC);
@@ -86,6 +88,7 @@ await addColumns("products", [
   ["variant_stock", "ALTER TABLE products ADD COLUMN variant_stock TEXT NOT NULL DEFAULT '{}'"],
 ])
 await addColumns("orders", [
+  ["idempotency_key", "ALTER TABLE orders ADD COLUMN idempotency_key TEXT"],
   ["coupon_code", "ALTER TABLE orders ADD COLUMN coupon_code TEXT"],
   ["discount", "ALTER TABLE orders ADD COLUMN discount REAL NOT NULL DEFAULT 0"],
 ])
