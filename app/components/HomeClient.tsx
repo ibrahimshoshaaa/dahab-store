@@ -9,6 +9,7 @@ import ProductCardImages from "./ProductCardImages"
 import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lucide-react"
 import SiteHeader from "./SiteHeader"
 import StoreFooter from "./StoreFooter"
+import PageLoading from "./PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
@@ -46,29 +47,29 @@ function s(settings: SiteSettings, key: string): string {
 
 export default function HomeClient() {
   const [products, setProducts] = useState<ApiProduct[]>([])
-  const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState<SiteSettings>({})
+  const [isLoaded, setIsLoaded] = useState(false)
   const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
     let cancelled = false
 
-    // Render the first viewport immediately with safe defaults. Products/settings
-    // arrive independently so a slow API response cannot block the mobile shell.
-    fetchSettings()
-      .then((nextSettings) => {
-        if (!cancelled) setSettings(nextSettings)
+    Promise.all([fetchProducts(), fetchSettings()])
+      .then(([data, nextSettings]) => {
+        if (cancelled) return
+        setProducts(data)
+        setSettings(nextSettings)
+        setIsLoaded(true)
       })
-      .catch(() => {})
-
-    fetchProducts()
-      .then((data) => {
-        if (!cancelled) setProducts(data)
+      .catch(() => {
+        // Keep loading instead of presenting fallback defaults as real store data.
       })
-      .catch(() => {})
 
     return () => { cancelled = true }
   }, [])
+
+  if (!isLoaded) return <PageLoading />
 
   const resolvedSettings: SiteSettings = { ...DEFAULT_SETTINGS, ...settings }
 
