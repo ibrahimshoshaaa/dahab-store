@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import crypto from "node:crypto"
 import { v2 as cloudinary } from "cloudinary"
 import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
@@ -296,7 +297,7 @@ const body =
 
   // ---------- settings ----------
   if (p.join("/")==="settings"&&method==="GET") { try{const r=await db.execute("SELECT key,value FROM settings");return json({success:true,settings:Object.fromEntries((r.rows as any[]).map(x=>[x.key,x.value]))})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الإعدادات"},500)} }
-  if (p.join("/")==="admin/settings"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{for(const [key,value] of Object.entries((body as any)||{}))await db.execute({sql:"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",args:[key,String(value)]});return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء حفظ الإعدادات"},500)} }
+  if (p.join("/")==="admin/settings"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{for(const [key,value] of Object.entries((body as any)||{}))await db.execute({sql:"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",args:[key,String(value)]});revalidateTag("settings", "max");return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء حفظ الإعدادات"},500)} }
 
   // ---------- image upload ----------
   if (p.join("/")==="admin/upload"&&method==="POST") {

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Search, SlidersHorizontal, Heart, X, ShoppingBag } from "lucide-react"
-import { products as mockProducts, type Product } from "../data/products"
+import type { ApiProduct } from "../lib/api"
 import { fetchProducts } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import SiteHeader from "../components/SiteHeader"
@@ -16,7 +16,7 @@ function ProductsContent() {
   const urlCategory = searchParams.get("category")
   const initialCategory = urlCategory ?? "الكل"
 
-  const [products, setProducts] = useState<Product[]>(mockProducts)
+  const [products, setProducts] = useState<ApiProduct[]>([])
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState(initialCategory)
   const [sort, setSort] = useState("default")
@@ -25,7 +25,7 @@ function ProductsContent() {
 
   useEffect(() => {
     fetchProducts().then((data) => {
-      if (data.length) setProducts(data)
+      setProducts(data)
     })
   }, [])
 

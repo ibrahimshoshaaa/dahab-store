@@ -1,4 +1,4 @@
-import { products as mockProducts, type Product } from "../data/products"
+import type { Product } from "../data/products"
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
@@ -18,7 +18,6 @@ export async function fetchProducts(): Promise<ApiProduct[]> {
 
     return data.products
   } catch {
-    if (process.env.NODE_ENV !== "production") return mockProducts
     return []
   }
 }
@@ -36,9 +35,6 @@ export async function fetchProductBySlug(
 
     return data.product
   } catch {
-    if (process.env.NODE_ENV !== "production") {
-      return mockProducts.find((product) => product.slug === slug)
-    }
     return undefined
   }
 }
