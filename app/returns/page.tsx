@@ -11,6 +11,7 @@ import {
 import { fetchSettings, type SiteSettings } from "../lib/api"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
+import PageLoading from "../components/PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   returns_period_days: "14",
@@ -44,11 +45,7 @@ export default function ReturnsPage() {
   }, [])
 
   if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--brand)] border-t-transparent" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   const conditions = toLines(s(settings, "returns_conditions"))
