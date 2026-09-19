@@ -41,6 +41,37 @@ export async function fetchProductBySlug(
   }
 }
 
+// ---------- live cart stock ----------
+
+export type CartStockItem = {
+  product_id: number
+  quantity: number
+  selected_color?: string
+  selected_size?: string
+}
+
+export type CartStockResult = {
+  product_id: number
+  selected_color?: string
+  selected_size?: string
+  requested: number
+  available: number
+  active: boolean
+}
+
+export async function checkCartStock(items: CartStockItem[]): Promise<CartStockResult[]> {
+  if (!items.length) return []
+  const res = await fetch(`${API_URL}/api/cart/stock`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({ items }),
+  })
+  const data = await res.json()
+  if (!res.ok || !data.success) throw new Error(data.message || "تعذر التحقق من المخزون")
+  return data.items as CartStockResult[]
+}
+
 // ---------- public: orders ----------
 
 export type OrderPayload = {
