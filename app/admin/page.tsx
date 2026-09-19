@@ -127,7 +127,7 @@ export default function AdminDashboard() {
         fetchAdminOrders(),
         fetchContactMessages().catch(() => []),
       ])
-      setOrders(ordersData as unknown as Order[])
+      setOrders(ordersData.orders as Order[])
       setMessages(messagesData)
     } catch {
       setError("تعذر تحميل بيانات الداشبورد — تأكد من اتصال الباك إند")
