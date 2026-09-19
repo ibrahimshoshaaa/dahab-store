@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import type { SiteSettings, ApiProduct } from "../lib/api"
-import { fetchProducts, fetchSettings } from "../lib/api"
+import { fetchProductsRequired, fetchSettingsRequired } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import ProductCardImages from "./ProductCardImages"
 import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lucide-react"
@@ -55,7 +55,7 @@ export default function HomeClient() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([fetchProducts(), fetchSettings()])
+    Promise.all([fetchProductsRequired(), fetchSettingsRequired()])
       .then(([data, nextSettings]) => {
         if (cancelled) return
         setProducts(data)
