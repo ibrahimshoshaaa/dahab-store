@@ -132,24 +132,22 @@ export async function fetchOrderByCode(code: string) {
 
 // ---------- admin ----------
 
-// Admin authentication is stored in an HttpOnly cookie by the API.
+// The real admin token is HttpOnly; this marker is non-sensitive and only keeps legacy client route guards working.
 export function getAdminToken() {
-  return null
+  if (typeof document === "undefined") return null
+  return document.cookie.split(";").some((part) => part.trim() === "dahab_admin_session=1") ? "session-marker" : null
 }
 
 export function setAdminToken(_token: string) {}
-
 export function clearAdminToken() {}
 
 async function adminFetch(path: string, options: RequestInit = {}) {
-  const token = getAdminToken()
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     cache: "no-store",
   })
