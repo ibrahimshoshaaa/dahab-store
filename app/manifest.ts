@@ -16,8 +16,9 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "rtl",
     categories: ["shopping", "lifestyle"],
     icons: [
-      // استخدم اللوجو الأصلي نفسه كتطبيق وأيقونة Splash بدل أيقونة D المختصرة.
-      { src: "/logo.png", sizes: "any", type: "image/png", purpose: "any" },
+      // نستخدم اللوجو الأصلي في المقاسين المطلوبين للـ PWA.
+      { src: "/logo.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/logo.png", sizes: "512x512", type: "image/png", purpose: "any" },
     ],
   }
 }
