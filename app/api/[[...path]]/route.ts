@@ -403,11 +403,21 @@ const body =
   if (p.join("/") === "orders" && method === "POST") {
     let tx:any=null
     try {
-      const b:any=body,{customer_name,phone,governorate,area,address,notes,items,total,coupon_code}=b
+      const b:any=body,{customer_name,phone,governorate,area,address,notes,items,total,coupon_code,idempotency_key}=b
       const normalizedPhone=normalizeEgyptianPhone(phone)
       if(!customer_name||!normalizedPhone||!governorate||!area||!address||!Array.isArray(items)||items.length===0)return json({success:false,message:"بيانات الطلب غير مكتملة أو رقم الهاتف غير صحيح"},400)
       const quantities=new Map<number,number>(); for(const item of items){const id=Number(item.product_id),q=Math.floor(Number(item.quantity));if(!Number.isInteger(id)||id<=0||!Number.isInteger(q)||q<=0)return json({success:false,message:"بيانات المنتجات غير صحيحة"},400);quantities.set(id,(quantities.get(id)||0)+q)}
+      const idempotencyKey = String(idempotency_key || "").trim()
+      if (idempotencyKey.length > 128) return json({success:false,message:"معرف الطلب غير صالح"},400)
       tx=await db.transaction("write")
+      if (idempotencyKey) {
+        const existing = await tx.execute({sql:"SELECT id,tracking_code,total,discount FROM orders WHERE idempotency_key=? LIMIT 1",args:[idempotencyKey]})
+        if (existing.rows[0]) {
+          const row:any = existing.rows[0]
+          await tx.rollback(); tx=null
+          return json({success:true,message:"تم إنشاء الطلب بنجاح",order_id:Number(row.id),tracking_code:String(row.tracking_code),discount:Number(row.discount||0),total:Number(row.total)},200)
+        }
+      }
       const normalized:any[]=[]
       const ids=Array.from(quantities.keys())
       const productsResult=await tx.execute(`SELECT id,name,category,price,stock,active,variant_stock FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,ids)
@@ -417,7 +427,7 @@ const body =
       if(coupon_code){const cr=await tx.execute({sql:"SELECT * FROM coupons WHERE code=?",args:[String(coupon_code).trim().toUpperCase()]});coupon=cr.rows[0];discount=couponDiscount(coupon,subtotal,normalized);if(!coupon||discount<=0)throw Object.assign(new Error("BAD_COUPON"),{code:"BAD_COUPON"})}
       const finalTotal=Math.max(0,subtotal-discount);if(total!==undefined&&Math.abs(Number(total)-finalTotal)>0.01)throw Object.assign(new Error("PRICE_CHANGED"),{code:"PRICE_CHANGED"})
       let trackingCode=generateTrackingCode(); for(let i=0;i<5;i++){const c=await tx.execute({sql:"SELECT 1 FROM orders WHERE tracking_code=?",args:[trackingCode]});if(!c.rows[0])break;trackingCode=generateTrackingCode()}
-      const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[String(customer_name).trim(),normalizedPhone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
+      const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount,idempotency_key) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?,?)`,args:[String(customer_name).trim(),normalizedPhone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount,idempotencyKey||null]});const orderId=Number(orderResult.lastInsertRowid)
       for(const item of normalized)await tx.execute({sql:"INSERT INTO order_items(order_id,product_id,product_name,price,quantity,selected_color,selected_size) VALUES(?,?,?,?,?,?,?)",args:[orderId,item.product_id,item.product_name,item.price,item.quantity,item.selected_color,item.selected_size]})
       for(const [id,qty] of quantities){
         const product:any=products.get(id)
