@@ -251,7 +251,7 @@ export default function AdminDashboard() {
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h2 className="font-semibold">المبيعات خلال آخر 7 أيام</h2>
-                <p className="mt-1 text-xs text-gray-400">الإجمالي: {money(stats.weekRevenue)} · {stats.weekOrders.length} طلب</p>
+                <p className="mt-1 text-xs text-gray-400">الإجمالي: {money(stats.weekRevenue)} · {stats.weekOrders} طلب</p>
               </div>
               <div className="rounded-xl bg-[var(--brand-tint)] p-2.5 text-[var(--brand-dark)]"><CalendarDays size={18} /></div>
             </div>
