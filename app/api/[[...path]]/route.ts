@@ -301,6 +301,54 @@ const body =
     }
   }
 
+  // ---------- admin dashboard summary ----------
+  if (p.join("/") === "admin/orders/summary" && method === "GET") {
+    const denied = await adminGuard(request); if (denied) return denied
+    try {
+      const rawOffset = Number(url.searchParams.get("tzOffsetMinutes") || 0)
+      const tzOffset = Number.isFinite(rawOffset) ? Math.max(-840, Math.min(840, Math.trunc(rawOffset))) : 0
+      const modifier = `${tzOffset <= 0 ? "+" : "-"}${Math.abs(tzOffset)} minutes`
+      const localDate = `date(created_at, '${D}modifier}')`
+      const today = `date('now', '${D}modifier}')`
+      const weekStart = `date('now', '${D}modifier}', '-6 days')`
+
+      const [aggregateResult, statusResult, daysResult, topProductsResult, recentResult] = await Promise.all([
+        db.execute({
+          sql: `SELECT COUNT(*) AS total_orders, SUM(CASE WHEN status != 'ملغي' THEN 1 ELSE 0 END) AS valid_orders, COALESCE(SUM(CASE WHEN status != 'ملغي' THEN total ELSE 0 END),0) AS all_revenue, SUM(CASE WHEN status != 'ملغي' AND ${localDate} = ${today} THEN 1 ELSE 0 END) AS today_orders, COALESCE(SUM(CASE WHEN status != 'ملغي' AND ${localDate} = ${today} THEN total ELSE 0 END),0) AS today_revenue, SUM(CASE WHEN status != 'ملغي' AND ${localDate} BETWEEN ${weekStart} AND ${today} THEN 1 ELSE 0 END) AS week_orders, COALESCE(SUM(CASE WHEN status != 'ملغي' AND ${localDate} BETWEEN ${weekStart} AND ${today} THEN total ELSE 0 END),0) AS week_revenue FROM orders`,
+          args: [],
+        }),
+        db.execute({ sql: "SELECT status, COUNT(*) AS count FROM orders GROUP BY status", args: [] }),
+        db.execute({
+          sql: `SELECT ${localDate} AS date, COUNT(*) AS orders, COALESCE(SUM(CASE WHEN status != 'ملغي' THEN total ELSE 0 END),0) AS revenue FROM orders WHERE ${localDate} BETWEEN ${weekStart} AND ${today} GROUP BY ${localDate} ORDER BY date ASC`,
+          args: [],
+        }),
+        db.execute({
+          sql: `SELECT oi.product_name AS name, SUM(oi.quantity) AS quantity, COALESCE(SUM(oi.price * oi.quantity),0) AS revenue FROM order_items oi INNER JOIN orders o ON o.id = oi.order_id WHERE o.status != 'ملغي' GROUP BY oi.product_name ORDER BY quantity DESC, revenue DESC LIMIT 5`,
+          args: [],
+        }),
+        db.execute({ sql: "SELECT id,customer_name,phone,total,status,tracking_code,created_at FROM orders ORDER BY id DESC LIMIT 6", args: [] }),
+      ])
+
+      const recentRows = recentResult.rows as any[]
+      const recentIds = recentRows.map((row) => Number(row.id))
+      let itemRows: any[] = []
+      if (recentIds.length) {
+        const itemsResult = await db.execute(`SELECT id,order_id,product_id,product_name,price,quantity,selected_color,selected_size FROM order_items WHERE order_id IN (${D}recentIds.map(() => "?").join(",")}) ORDER BY id ASC`, recentIds)
+        itemRows = itemsResult.rows as any[]
+      }
+      const itemsByOrder = new Map<number, any[]>()
+      for (const item of itemRows) { const key = Number(item.order_id); const list = itemsByOrder.get(key) || []; list.push(item); itemsByOrder.set(key, list) }
+      const recentOrders = recentRows.map((order) => ({ ...order, items: itemsByOrder.get(Number(order.id)) || [] }))
+      const aggregate = (aggregateResult.rows as any[])[0] || {}
+      const statusCounts: Record<string, number> = {}
+      for (const row of statusResult.rows as any[]) statusCounts[String(row.status)] = Number(row.count || 0)
+      const days = (daysResult.rows as any[]).map((row) => ({ date: String(row.date), orders: Number(row.orders || 0), revenue: Number(row.revenue || 0) }))
+      const topProducts = (topProductsResult.rows as any[]).map((row) => ({ name: String(row.name || ""), quantity: Number(row.quantity || 0), revenue: Number(row.revenue || 0) }))
+      const todayOrders = Number(aggregate.today_orders || 0)
+      const todayRevenue = Number(aggregate.today_revenue || 0)
+      return json({ success: true, stats: { totalOrders: Number(aggregate.total_orders || 0), validOrders: Number(aggregate.valid_orders || 0), allRevenue: Number(aggregate.all_revenue || 0), todayOrders, todayRevenue, weekOrders: Number(aggregate.week_orders || 0), weekRevenue: Number(aggregate.week_revenue || 0), averageToday: todayOrders ? todayRevenue / todayOrders : 0, newOrders: statusCounts["جديد"] || 0, preparing: statusCounts["جاري التجهيز"] || 0, shipping: statusCounts["تم الشحن"] || 0, delivered: statusCounts["تم التسليم"] || 0, canceled: statusCounts["ملغي"] || 0 }, statusCounts, days, topProducts, recentOrders })
+    } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب ملخص الداشبورد" }, 500) }
+  }
   // ---------- orders ----------
   if (p.join("/") === "orders" && method === "GET") {
     const denied=await adminGuard(request); if(denied)return denied
