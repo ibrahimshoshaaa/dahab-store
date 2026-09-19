@@ -18,6 +18,7 @@ import { createOrder, validateCoupon, trackEvent } from "../lib/api"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
 import { whatsappUrl } from "../lib/whatsapp"
+import { normalizeEgyptianPhone } from "../lib/validation.mjs"
 
 const governorates = [
   "القاهرة",
@@ -98,8 +99,8 @@ export default function CheckoutPage() {
       alert("من فضلك أكمل جميع البيانات المطلوبة")
       return
     }
-    const normalizedPhone = phone.replace(/\s|-/g, "")
-    if (!/^(01[0125]\d{8}|\+?20[0125]1\d{8})$/.test(normalizedPhone)) {
+    const normalizedPhone = normalizeEgyptianPhone(phone)
+    if (!normalizedPhone) {
       alert("من فضلك أدخل رقم موبايل مصري صحيح")
       return
     }
@@ -137,6 +138,7 @@ export default function CheckoutPage() {
       setOrderTotal(Math.max(0, cartTotal - discount))
       trackEvent({event_type:"purchase",path:"/checkout",metadata:{order_id:orderId,total:Math.max(0,cartTotal-discount)}} as any)
       setSubmitted(true)
+      if (typeof window !== "undefined") sessionStorage.removeItem("dahab-order-idempotency-key")
       clearCart()
     } catch (err) {
       setError(

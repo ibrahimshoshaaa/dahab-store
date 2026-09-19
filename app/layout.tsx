@@ -5,6 +5,7 @@ import { CartProvider } from "./context/CartContext"
 import { FavoritesProvider } from "./context/FavoritesContext"
 import PwaRegister from "./components/PwaRegister"
 import { db, ensureDb } from "./lib/server/db"
+import { SITE_URL } from "./lib/site"
 import {
   resolveTheme,
   buildGoogleFontsUrl,
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
   applicationName: "DAHAB",
   keywords: ["دهب", "Dahab", "عبايات", "عبايات مصرية", "إكسسوارات"],
   alternates: { canonical: "/" },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dahab-store.vercel.app"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     title: "DAHAB | دهب",
     description: "عبايات مصرية وإكسسوارات مختارة بعناية.",

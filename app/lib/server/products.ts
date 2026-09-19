@@ -25,5 +25,5 @@ export async function getPublicProductBySlug(
   const row = result.rows[0]
   if (!row) return null
 
-  return parseProduct(row as Record<string, unknown>) as PublicProduct
+  return parseProduct(row as Record<string, unknown>) as unknown as PublicProduct
 }

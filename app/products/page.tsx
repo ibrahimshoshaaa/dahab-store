@@ -19,6 +19,7 @@ function ProductsContent() {
 
   const [products, setProducts] = useState<ApiProduct[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState(initialCategory)
   const [sort, setSort] = useState("default")
@@ -28,11 +29,15 @@ function ProductsContent() {
   useEffect(() => {
     let cancelled = false
 
+    setLoadError("")
     fetchProducts()
       .then((data) => {
         if (!cancelled) {
           setProducts(data)
         }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("تعذر تحميل المنتجات. تأكدي من الاتصال وحاولي مرة أخرى.")
       })
       .finally(() => {
         if (!cancelled) {
@@ -44,6 +49,8 @@ function ProductsContent() {
       cancelled = true
     }
   }, [])
+
+  const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ar")), [products])
 
   const filteredProducts = useMemo(() => {
     let result = products.filter((product) => {
@@ -70,6 +77,18 @@ function ProductsContent() {
 
   if (isLoading) {
     return <PageLoading />
+  }
+
+  if (loadError) {
+    return (
+      <main dir="rtl" className="flex min-h-screen items-center justify-center bg-[var(--bg)] px-5">
+        <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-semibold">تعذر تحميل المنتجات</h1>
+          <p className="mt-3 text-sm leading-7 text-gray-500">{loadError}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-6 rounded-full bg-black px-6 py-3 text-sm text-white">إعادة المحاولة</button>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -117,8 +136,9 @@ function ProductsContent() {
               className="w-full bg-transparent py-3 outline-none"
             >
               <option value="الكل">كل الأقسام</option>
-              <option value="عبايات">العبايات</option>
-              <option value="إكسسوارات">الإكسسوارات</option>
+              {categories.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
             </select>
           </div>
 

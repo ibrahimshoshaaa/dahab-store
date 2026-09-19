@@ -1,6 +1,10 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - "**"
@@ -10,7 +14,7 @@ on:
 
 jobs:
   typecheck:
-    name: TypeScript check
+    name: Quality checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -30,3 +34,15 @@ jobs:
 
       - name: TypeScript
         run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        env:
+          TURSO_DATABASE_URL: file:./.ci-turso.db
+          TURSO_AUTH_TOKEN: ci-placeholder
+        run: npm run build

@@ -5,6 +5,7 @@ import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
 import { createAdminToken, getAdminTokenFromRequest, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
 import { clientIp, rateLimit } from "@/app/lib/server/rate-limit"
 import { couponDiscount, json, parseProduct, readJson, safeJsonParse, slugify } from "@/app/lib/server/utils"
+import { normalizeEgyptianPhone } from "@/app/lib/validation.mjs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -402,10 +403,21 @@ const body =
   if (p.join("/") === "orders" && method === "POST") {
     let tx:any=null
     try {
-      const b:any=body,{customer_name,phone,governorate,area,address,notes,items,total,coupon_code}=b
-      if(!customer_name||!phone||!governorate||!area||!address||!Array.isArray(items)||items.length===0)return json({success:false,message:"بيانات الطلب غير مكتملة"},400)
+      const b:any=body,{customer_name,phone,governorate,area,address,notes,items,total,coupon_code,idempotency_key}=b
+      const normalizedPhone=normalizeEgyptianPhone(phone)
+      if(!customer_name||!normalizedPhone||!governorate||!area||!address||!Array.isArray(items)||items.length===0)return json({success:false,message:"بيانات الطلب غير مكتملة أو رقم الهاتف غير صحيح"},400)
       const quantities=new Map<number,number>(); for(const item of items){const id=Number(item.product_id),q=Math.floor(Number(item.quantity));if(!Number.isInteger(id)||id<=0||!Number.isInteger(q)||q<=0)return json({success:false,message:"بيانات المنتجات غير صحيحة"},400);quantities.set(id,(quantities.get(id)||0)+q)}
+      const idempotencyKey = String(idempotency_key || "").trim()
+      if (idempotencyKey.length > 128) return json({success:false,message:"معرف الطلب غير صالح"},400)
       tx=await db.transaction("write")
+      if (idempotencyKey) {
+        const existing = await tx.execute({sql:"SELECT id,tracking_code,total,discount FROM orders WHERE idempotency_key=? LIMIT 1",args:[idempotencyKey]})
+        if (existing.rows[0]) {
+          const row:any = existing.rows[0]
+          await tx.rollback(); tx=null
+          return json({success:true,message:"تم إنشاء الطلب بنجاح",order_id:Number(row.id),tracking_code:String(row.tracking_code),discount:Number(row.discount||0),total:Number(row.total)},200)
+        }
+      }
       const normalized:any[]=[]
       const ids=Array.from(quantities.keys())
       const productsResult=await tx.execute(`SELECT id,name,category,price,stock,active,variant_stock FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,ids)
@@ -415,7 +427,7 @@ const body =
       if(coupon_code){const cr=await tx.execute({sql:"SELECT * FROM coupons WHERE code=?",args:[String(coupon_code).trim().toUpperCase()]});coupon=cr.rows[0];discount=couponDiscount(coupon,subtotal,normalized);if(!coupon||discount<=0)throw Object.assign(new Error("BAD_COUPON"),{code:"BAD_COUPON"})}
       const finalTotal=Math.max(0,subtotal-discount);if(total!==undefined&&Math.abs(Number(total)-finalTotal)>0.01)throw Object.assign(new Error("PRICE_CHANGED"),{code:"PRICE_CHANGED"})
       let trackingCode=generateTrackingCode(); for(let i=0;i<5;i++){const c=await tx.execute({sql:"SELECT 1 FROM orders WHERE tracking_code=?",args:[trackingCode]});if(!c.rows[0])break;trackingCode=generateTrackingCode()}
-      const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[customer_name,phone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
+      const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount,idempotency_key) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?,?)`,args:[String(customer_name).trim(),normalizedPhone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount,idempotencyKey||null]});const orderId=Number(orderResult.lastInsertRowid)
       for(const item of normalized)await tx.execute({sql:"INSERT INTO order_items(order_id,product_id,product_name,price,quantity,selected_color,selected_size) VALUES(?,?,?,?,?,?,?)",args:[orderId,item.product_id,item.product_name,item.price,item.quantity,item.selected_color,item.selected_size]})
       for(const [id,qty] of quantities){
         const product:any=products.get(id)
@@ -447,7 +459,41 @@ const body =
 
   if (p.length===3&&p[0]==="orders"&&p[1]==="track"&&method==="GET") { try{const code=String(p[2]).trim().toUpperCase();const r=await db.execute({sql:"SELECT * FROM orders WHERE tracking_code=?",args:[code]});if(!r.rows[0])return json({success:false,message:"لم يتم العثور على طلب بهذا الكود"},404);const order:any=r.rows[0],items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return json({success:true,order:{id:order.id,status:order.status,total:order.total,customer_name:order.customer_name,created_at:order.created_at},items:items.rows})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ"},500)} }
   if (p.length===2&&p[0]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied; try{const id=numberParam(p[1]);if(!id)return json({success:false,message:"الطلب غير موجود"},404);const r=await db.execute({sql:"SELECT * FROM orders WHERE id=?",args:[id]});if(!r.rows[0])return json({success:false,message:"الطلب غير موجود"},404);const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[id]});return json({success:true,order:r.rows[0],items:items.rows})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ"},500)} }
-  if (p.length===3&&p[0]==="orders"&&p[2]==="status"&&method==="PATCH") { const denied=await adminGuard(request);if(denied)return denied;try{const id=numberParam(p[1]),status=String((body as any)?.status||"");if(!id)return json({success:false,message:"الطلب غير موجود"},404);if(!allowedStatuses.includes(status))return json({success:false,message:"حالة الطلب غير صحيحة"},400);const r=await db.execute({sql:"UPDATE orders SET status=? WHERE id=?",args:[status,id]});if(!r.rowsAffected)return json({success:false,message:"الطلب غير موجود"},404);return json({success:true,message:"تم تحديث حالة الطلب"})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث الطلب"},500)} }
+  if (p.length===3&&p[0]==="orders"&&p[2]==="status"&&method==="PATCH") {
+    const denied=await adminGuard(request);if(denied)return denied
+    let tx:any=null
+    try{
+      const id=numberParam(p[1]),status=String((body as any)?.status||"")
+      if(!id)return json({success:false,message:"الطلب غير موجود"},404)
+      if(!allowedStatuses.includes(status))return json({success:false,message:"حالة الطلب غير صحيحة"},400)
+      tx=await db.transaction("write")
+      const orderResult=await tx.execute({sql:"SELECT id,status FROM orders WHERE id=?",args:[id]})
+      const order:any=orderResult.rows[0]
+      if(!order){await tx.rollback();tx=null;return json({success:false,message:"الطلب غير موجود"},404)}
+      if(order.status==="ملغي"&&status!=="ملغي"){await tx.rollback();tx=null;return json({success:false,message:"لا يمكن إعادة تفعيل طلب ملغي لأن المخزون تم إرجاعه"},409)}
+      if(order.status!=="ملغي"&&status==="ملغي"){
+        const itemsResult=await tx.execute({sql:"SELECT product_id,quantity,selected_color,selected_size FROM order_items WHERE order_id=?",args:[id]})
+        const quantities=new Map<number,any[]>();
+        for(const raw of itemsResult.rows as any[]){const productId=Number(raw.product_id);const list=quantities.get(productId)||[];list.push(raw);quantities.set(productId,list)}
+        for(const [productId,itemsForProduct] of quantities){
+          const productResult=await tx.execute({sql:"SELECT stock,variant_stock FROM products WHERE id=?",args:[productId]})
+          const product:any=productResult.rows[0]
+          if(!product) continue
+          const variants=safeJsonParse<any>(product.variant_stock,{})
+          if(Object.keys(variants).length){
+            for(const item of itemsForProduct){const key=String(item.selected_color||"-")+"|"+String(item.selected_size||"-");variants[key]=Number(variants[key]||0)+Math.max(0,Math.floor(Number(item.quantity)))}
+            await tx.execute({sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=?",args:[totalVariantStock(variants),JSON.stringify(variants),productId]})
+          }else{
+            const qty=itemsForProduct.reduce((sum,item)=>sum+Math.max(0,Math.floor(Number(item.quantity))),0)
+            await tx.execute({sql:"UPDATE products SET stock=stock+? WHERE id=?",args:[qty,productId]})
+          }
+        }
+      }
+      await tx.execute({sql:"UPDATE orders SET status=? WHERE id=?",args:[status,id]})
+      await tx.commit();tx=null
+      return json({success:true,message:"تم تحديث حالة الطلب"})
+    }catch(error){if(tx)try{await tx.rollback()}catch{};console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث الطلب"},500)}
+  }
 
   // ---------- customers ----------
   if (p.join("/")==="admin/customers"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const r=await db.execute("SELECT o.phone,COUNT(*) AS orders_count,SUM(CASE WHEN o.status='ملغي' THEN 0 ELSE o.total END) AS total_spent,MAX(o.created_at) AS last_order_at,MIN(o.created_at) AS first_order_at,(SELECT x.customer_name FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS customer_name,(SELECT x.governorate FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS governorate,(SELECT x.area FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS area,(SELECT x.address FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS address FROM orders o WHERE TRIM(COALESCE(o.phone,''))<>'' GROUP BY o.phone ORDER BY last_order_at DESC");const customers=(r.rows as any[]).map(x=>({...x,phone:String(x.phone).trim(),orders_count:Number(x.orders_count||0),total_spent:Number(x.total_spent||0)}));return json({success:true,customers})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب العملاء"},500)} }
@@ -462,7 +508,7 @@ const body =
       const message=String(b?.message||"").trim()
       if(!name||!phone||!message)return json({success:false,message:"من فضلك أكملي كل الحقول"},400)
       if(name.length>80||phone.length>30||message.length>1000)return json({success:false,message:"البيانات المدخلة طويلة جدًا"},400)
-      if(!/^[0-9+()\s.-]{7,30}$/.test(phone))return json({success:false,message:"رقم الهاتف غير صحيح"},400)
+      if(!normalizeEgyptianPhone(phone))return json({success:false,message:"رقم الهاتف غير صحيح"},400)
       const r=await db.execute({sql:"INSERT INTO contact_messages(name,phone,message) VALUES(?,?,?)",args:[name,phone,message]})
       return json({success:true,id:Number(r.lastInsertRowid)})
     }catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء إرسال الرسالة"},500)}

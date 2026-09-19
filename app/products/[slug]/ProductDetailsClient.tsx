@@ -179,16 +179,17 @@ export default function ProductDetailsClient({
   }
 
   function handleAddToCart() {
-    if (availableStock <= 0) return
+    if (!product || availableStock <= 0) return
+    const currentProduct = product
     addToCart(
-      product!,
+      currentProduct,
       Math.min(quantity, availableStock),
       selectedColor || undefined,
       selectedSize || undefined
     )
 
     setAdded(true)
-    trackEvent({event_type:"add_to_cart",product_id:product.id,path:`/products/${slug}`,metadata:{quantity:Math.min(quantity,availableStock),color:selectedColor,size:selectedSize}})
+    trackEvent({event_type:"add_to_cart",product_id:currentProduct.id,path:`/products/${slug}`,metadata:{quantity:Math.min(quantity,availableStock),color:selectedColor,size:selectedSize}})
   }
 
   function handleColorSelect(color: string) {

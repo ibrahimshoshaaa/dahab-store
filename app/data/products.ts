@@ -7,7 +7,7 @@ export type Product = {
   id: number
   slug: string
   name: string
-  category: "عبايات" | "إكسسوارات"
+  category: string
   price: number
   oldPrice?: number
   image: string
