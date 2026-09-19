@@ -52,17 +52,17 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
   const { toggleFavorite, isFavorite } = useFavorites()
 
   const accessoryItems = [
-    [s(settings, "accessories_item1_title"), s(settings, "accessories_item1_image"), "/products?category=إكسسوارات"],
-    [s(settings, "accessories_item3_title"), s(settings, "accessories_item3_image"), "/products?category=إكسسوارات"],
+    [s(resolvedSettings, "accessories_item1_title"), s(resolvedSettings, "accessories_item1_image"), "/products?category=إكسسوارات"],
+    [s(resolvedSettings, "accessories_item3_title"), s(resolvedSettings, "accessories_item3_image"), "/products?category=إكسسوارات"],
   ]
 
   const heroImages = Array.from({ length: 8 }, (_, index) => {
     const key = `hero_image_${index + 1}`
-    if (index === 0) return settings.hero_image_1 || settings.hero_image || s(settings, key)
+    if (index === 0) return settings.hero_image_1 || settings.hero_image || s(resolvedSettings, key)
     return settings[key] || ""
   }).filter(Boolean)
   // توافق مع الإصدارات القديمة التي كانت تستخدم hero_image بدل hero_image_1.
-  if (!heroImages.length && s(settings, "hero_image")) heroImages.push(s(settings, "hero_image"))
+  if (!heroImages.length && s(resolvedSettings, "hero_image")) heroImages.push(s(resolvedSettings, "hero_image"))
 
   useEffect(() => {
     if (heroImages.length < 2) {
@@ -73,8 +73,9 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
       setActiveHero((current) => (current + 1) % heroImages.length)
     }, Math.min(60000, Math.max(1000, Number(settings.hero_interval_seconds || 3) * 1000)))
     return () => window.clearInterval(timer)
-  }, [heroImages.length, settings.hero_interval_seconds])
+  }, [heroImages.length, resolvedSettings.hero_interval_seconds])
 
+  if (!isLoaded) return <PageLoading />
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -108,19 +109,19 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
         <div className="relative mx-auto flex min-h-[420px] max-w-7xl items-center px-6 pb-24 sm:min-h-[520px] lg:min-h-[680px]">
           <div className="max-w-xl text-white">
             <p className="mb-5 text-xs tracking-[0.35em] text-[var(--brand-soft)]">
-              {s(settings, "hero_label")}
+              {s(resolvedSettings, "hero_label")}
             </p>
 
             <h1 className="text-5xl font-light leading-tight sm:text-6xl lg:text-7xl">
-              {s(settings, "hero_title_line1")}
+              {s(resolvedSettings, "hero_title_line1")}
               <br />
               <span className="font-serif italic text-[var(--brand-soft)]">
-                {s(settings, "hero_title_line2")}
+                {s(resolvedSettings, "hero_title_line2")}
               </span>
             </h1>
 
             <p className="mt-6 max-w-lg text-sm leading-8 text-white/80 sm:text-base">
-              {s(settings, "hero_subtitle")}
+              {s(resolvedSettings, "hero_subtitle")}
             </p>
           </div>
         </div>
@@ -130,7 +131,7 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
             href="#products"
             className="inline-flex items-center gap-3 rounded-full border border-white/45 bg-white/10 px-7 py-3.5 text-sm text-white shadow-lg backdrop-blur-md transition duration-300 hover:bg-white/20 hover:scale-[1.02]"
           >
-            {s(settings, "hero_button_text")}
+            {s(resolvedSettings, "hero_button_text")}
             <ArrowLeft size={18} />
           </a>
 
@@ -166,7 +167,7 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
 
           <a href="#products" className="group relative h-[280px] overflow-hidden sm:h-[360px] md:h-[480px]">
             <Image
-              src={s(settings, "collection_abaya_image")}
+              src={s(resolvedSettings, "collection_abaya_image")}
               alt="العبايات"
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -184,7 +185,7 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
 
           <a href="#accessories" className="group relative h-[280px] overflow-hidden sm:h-[360px] md:h-[480px]">
             <Image
-              src={s(settings, "collection_accessories_image")}
+              src={s(resolvedSettings, "collection_accessories_image")}
               alt="الإكسسوارات"
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
