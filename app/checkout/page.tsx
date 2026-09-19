@@ -49,7 +49,7 @@ const governorates = [
 ]
 
 export default function CheckoutPage() {
-  const { cart, cartTotal, clearCart } = useCart()
+  const { cart, cartTotal, clearCart, refreshCartStock, stockChecking } = useCart()
 
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
@@ -90,6 +90,12 @@ export default function CheckoutPage() {
     setSubmitting(true)
 
     try {
+      const stockOk = await refreshCartStock()
+      if (!stockOk) {
+        setError("تغير المخزون في السلة. تم تحديث الكميات، راجعي السلة قبل إتمام الطلب.")
+        setSubmitting(false)
+        return
+      }
       const { orderId, trackingCode } = await createOrder({
         customer_name: name,
         phone: normalizedPhone,
@@ -622,10 +628,10 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || stockChecking}
                 className="mt-6 flex w-full items-center justify-center gap-3 rounded-full bg-black py-4 text-sm text-white transition hover:bg-[var(--brand-dark)] disabled:opacity-60"
               >
-                {submitting ? "جارِ إرسال الطلب..." : "تأكيد الطلب"}
+                {submitting ? "جارِ التحقق وإرسال الطلب..." : stockChecking ? "جارِ التحقق من المخزون..." : "تأكيد الطلب"}
                 {!submitting && <ArrowLeft size={18} />}
               </button>
 
