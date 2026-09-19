@@ -52,7 +52,8 @@ export default function ProductDetailsClient({
 
   useEffect(() => {
     let active = true
-    let idleId: number | ReturnType<typeof setTimeout> | undefined
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     async function loadProduct() {
       // The product is rendered by the server for SEO and fast first paint.
@@ -95,7 +96,7 @@ export default function ProductDetailsClient({
         if ("requestIdleCallback" in window) {
           idleId = window.requestIdleCallback(loadSecondaryData, { timeout: 1200 })
         } else {
-          idleId = window.setTimeout(loadSecondaryData, 300)
+          timeoutId = window.setTimeout(loadSecondaryData, 300)
         }
       }
     }
@@ -104,9 +105,11 @@ export default function ProductDetailsClient({
 
     return () => {
       active = false
-      if (typeof idleId === "number") {
-        if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleId)
-        else window.clearTimeout(idleId)
+      if (idleId !== undefined && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId)
       }
     }
   }, [slug, initialProduct])
