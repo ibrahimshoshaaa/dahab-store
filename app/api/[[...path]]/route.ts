@@ -86,14 +86,14 @@ const body =
   // ---------- public products ----------
   if (p.length === 1 && p[0] === "products" && method === "GET") {
     try {
-      const result = await db.execute("SELECT * FROM products WHERE active = 1 ORDER BY id DESC")
+      const result = await db.execute("SELECT id,slug,name,category,price,old_price,image,images,badge,colors,sizes,description,featured,best_seller,active,size_chart,material_details,care_instructions,stock,low_stock_threshold,variant_stock FROM products WHERE active = 1 ORDER BY id DESC")
       return json({ success: true, products: result.rows.map((r: any) => parseProduct(r)) })
     } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب المنتجات" }, 500) }
   }
 
   if (p.length === 2 && p[0] === "products" && method === "GET") {
     try {
-      const result = await db.execute({ sql: "SELECT * FROM products WHERE slug = ? AND active = 1", args: [p[1]] })
+      const result = await db.execute({ sql: "SELECT id,slug,name,category,price,old_price,image,images,badge,colors,sizes,description,featured,best_seller,active,size_chart,material_details,care_instructions,stock,low_stock_threshold,variant_stock FROM products WHERE slug = ? AND active = 1 LIMIT 1", args: [p[1]] })
       if (!result.rows[0]) return json({ success: false, message: "المنتج غير موجود" }, 404)
       return json({ success: true, product: parseProduct(result.rows[0] as any) })
     } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب المنتج" }, 500) }
@@ -102,8 +102,10 @@ const body =
   // ---------- admin products ----------
   if (p.length === 2 && p[0] === "admin" && p[1] === "products" && method === "GET") {
     const denied = await adminGuard(request); if (denied) return denied
-    try { const result = await db.execute("SELECT * FROM products ORDER BY id DESC"); return json({ success: true, products: result.rows.map((r: any) => parseProduct(r)) }) }
-    catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب المنتجات" }, 500) }
+    try {
+      const result = await db.execute("SELECT id,slug,name,category,price,old_price,image,images,badge,colors,sizes,description,featured,best_seller,active,size_chart,material_details,care_instructions,stock,low_stock_threshold,variant_stock FROM products ORDER BY id DESC")
+      return json({ success: true, products: result.rows.map((r: any) => parseProduct(r)) })
+    } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب المنتجات" }, 500) }
   }
 
   if (p.length === 2 && p[0] === "admin" && p[1] === "products" && method === "POST") {
@@ -172,8 +174,14 @@ const body =
   // ---------- reviews ----------
   if (p.length === 3 && p[0] === "products" && p[2] === "reviews" && method === "GET") {
     const productId=numberParam(p[1]); if(!productId)return json({success:false,message:"معرف المنتج غير صحيح"},400)
-    try { const r=await db.execute({sql:"SELECT id,product_id,customer_name,rating,comment,created_at FROM product_reviews WHERE product_id=? AND status='approved' ORDER BY id DESC",args:[productId]}); const rows:any[]=r.rows as any[]; const average=rows.length?rows.reduce((s,x)=>s+Number(x.rating),0)/rows.length:0; return json({success:true,reviews:rows,average,count:rows.length}) }
-    catch(error){console.error(error);return json({success:false,message:"تعذر جلب التقييمات"},500)}
+    try {
+      const [rowsResult, statsResult]=await Promise.all([
+        db.execute({sql:"SELECT id,product_id,customer_name,rating,comment,created_at FROM product_reviews WHERE product_id=? AND status='approved' ORDER BY id DESC LIMIT 50",args:[productId]}),
+        db.execute({sql:"SELECT COUNT(*) AS count,COALESCE(AVG(rating),0) AS average FROM product_reviews WHERE product_id=? AND status='approved'",args:[productId]}),
+      ])
+      const stats:any=(statsResult.rows as any[])[0]||{}
+      return json({success:true,reviews:rowsResult.rows,average:Number(stats.average||0),count:Number(stats.count||0)})
+    } catch(error){console.error(error);return json({success:false,message:"تعذر جلب التقييمات"},500)}
   }
   if (p.length === 3 && p[0] === "products" && p[2] === "reviews" && method === "POST") {
     const productId=numberParam(p[1]); const b:any=body; const name=String(b?.customer_name||"").trim(),comment=String(b?.comment||"").trim(),rating=Number(b?.rating); if(!productId||!name||name.length>80||!Number.isInteger(rating)||rating<1||rating>5||!comment||comment.length>500)return json({success:false,message:"من فضلك أدخل تقييمًا صحيحًا"},400)
@@ -186,11 +194,49 @@ const body =
 
   // ---------- analytics ----------
   if (p.join("/") === "analytics/events" && method === "POST") {
-    try { const events=Array.isArray((body as any)?.events)?(body as any).events:[body]; const allowed=new Set(["page_view","product_view","add_to_cart","begin_checkout","purchase"]); for(const event of events.slice(0,20)){const type=String(event?.event_type||"");if(!allowed.has(type))continue;const productId=event?.product_id?Number(event.product_id):null;await db.execute({sql:"INSERT INTO analytics_events(event_type,product_id,path,session_id,metadata) VALUES(?,?,?,?,?)",args:[type,Number.isInteger(productId)?productId:null,String(event?.path||"").slice(0,300),String(event?.session_id||"").slice(0,120),JSON.stringify(event?.metadata||{})]})} return json({success:true}) } catch(error){console.error(error);return json({success:false,message:"تعذر تسجيل الإحصائية"},500)}
+    try { const events=Array.isArray((body as any)?.events)?(body as any).events:[body]; const allowed=new Set(["page_view","product_view","add_to_cart","begin_checkout","purchase"]); const statements=events.slice(0,20).flatMap((event:any)=>{const type=String(event?.event_type||"");if(!allowed.has(type))return [];const productId=event?.product_id?Number(event.product_id):null;return [{sql:"INSERT INTO analytics_events(event_type,product_id,path,session_id,metadata) VALUES(?,?,?,?,?)",args:[type,Number.isInteger(productId)?productId:null,String(event?.path||"").slice(0,300),String(event?.session_id||"").slice(0,120),JSON.stringify(event?.metadata||{})]}]});if(statements.length)await db.batch(statements,"write"); return json({success:true}) } catch(error){console.error(error);return json({success:false,message:"تعذر تسجيل الإحصائية"},500)}
   }
   if (p.join("/") === "admin/analytics" && method === "GET") {
     const denied=await adminGuard(request);if(denied)return denied
-    try { const days=Math.min(90,Math.max(1,Number(url.searchParams.get("days")||30))),modifier=`-${days} days`;const events=await db.execute({sql:"SELECT event_type,product_id,path,session_id,created_at FROM analytics_events WHERE created_at>=datetime('now', ?) ORDER BY id DESC",args:[modifier]});const counts:any={page_view:0,product_view:0,add_to_cart:0,begin_checkout:0,purchase:0};for(const r of events.rows as any[])counts[r.event_type]=(counts[r.event_type]||0)+1;const uniqueSessions=new Set((events.rows as any[]).map(r=>r.session_id).filter(Boolean)).size;const products=await db.execute({sql:"SELECT product_id,COUNT(*) AS views FROM analytics_events WHERE event_type='product_view' AND created_at>=datetime('now', ?) AND product_id IS NOT NULL GROUP BY product_id ORDER BY views DESC LIMIT 10",args:[modifier]});const ids=(products.rows as any[]).map(r=>Number(r.product_id));let names:any[]=[];if(ids.length){const rs=await db.execute(`SELECT id,name FROM products WHERE id IN (${ids.map(()=>'?').join(',')})`,ids);names=rs.rows as any[]}const nameMap=Object.fromEntries(names.map(r=>[Number(r.id),r.name]));return json({success:true,days,counts,uniqueSessions,topProducts:(products.rows as any[]).map(r=>({product_id:Number(r.product_id),name:nameMap[Number(r.product_id)]||"منتج",views:Number(r.views)}))}) }catch(error){console.error(error);return json({success:false,message:"تعذر جلب الإحصائيات"},500)}
+    try {
+      const days=Math.min(90,Math.max(1,Number(url.searchParams.get("days")||30)))
+      const modifier=`-${days} days`
+      const [countsResult,sessionsResult,productsResult]=await Promise.all([
+        db.execute({
+          sql:"SELECT event_type,COUNT(*) AS count FROM analytics_events WHERE created_at>=datetime('now', ?) GROUP BY event_type",
+          args:[modifier],
+        }),
+        db.execute({
+          sql:"SELECT COUNT(DISTINCT session_id) AS count FROM analytics_events WHERE created_at>=datetime('now', ?) AND session_id IS NOT NULL AND session_id != ''",
+          args:[modifier],
+        }),
+        db.execute({
+          sql:"SELECT product_id,COUNT(*) AS views FROM analytics_events WHERE event_type='product_view' AND created_at>=datetime('now', ?) AND product_id IS NOT NULL GROUP BY product_id ORDER BY views DESC LIMIT 10",
+          args:[modifier],
+        }),
+      ])
+      const counts:any={page_view:0,product_view:0,add_to_cart:0,begin_checkout:0,purchase:0}
+      for(const row of countsResult.rows as any[])counts[row.event_type]=(counts[row.event_type]||0)+Number(row.count)
+      const uniqueSessions=Number((sessionsResult.rows as any[])[0]?.count||0)
+      const ids=(productsResult.rows as any[]).map(r=>Number(r.product_id))
+      let names:any[]=[]
+      if(ids.length){
+        const rs=await db.execute(`SELECT id,name FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,ids)
+        names=rs.rows as any[]
+      }
+      const nameMap=Object.fromEntries(names.map(r=>[Number(r.id),r.name]))
+      return json({
+        success:true,
+        days,
+        counts,
+        uniqueSessions,
+        topProducts:(productsResult.rows as any[]).map(r=>({
+          product_id:Number(r.product_id),
+          name:nameMap[Number(r.product_id)]||"منتج",
+          views:Number(r.views),
+        })),
+      })
+    }catch(error){console.error(error);return json({success:false,message:"تعذر جلب الإحصائيات"},500)}
   }
 
   // ---------- coupons ----------
@@ -256,7 +302,7 @@ const body =
   }
 
   // ---------- orders ----------
-  if (p.join("/") === "orders" && method === "GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT * FROM orders ORDER BY id DESC");const orders=await Promise.all((result.rows as any[]).map(async order=>{const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return {...order,items:items.rows}}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)} }
+  if (p.join("/") === "orders" && method === "GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT id,customer_name,phone,governorate,area,address,notes,total,status,tracking_code,created_at FROM orders ORDER BY id DESC");const orderRows=result.rows as any[];const ids=orderRows.map(order=>Number(order.id));let itemRows:any[]=[];if(ids.length){const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids);itemRows=itemsResult.rows as any[]}const itemsByOrder=new Map<number,any[]>();for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)} }
 
   if (p.join("/") === "orders" && method === "POST") {
     let tx:any=null
@@ -266,14 +312,17 @@ const body =
       const quantities=new Map<number,number>(); for(const item of items){const id=Number(item.product_id),q=Math.floor(Number(item.quantity));if(!Number.isInteger(id)||id<=0||!Number.isInteger(q)||q<=0)return json({success:false,message:"بيانات المنتجات غير صحيحة"},400);quantities.set(id,(quantities.get(id)||0)+q)}
       tx=await db.transaction("write")
       const normalized:any[]=[]
-      for(const [id,qty] of quantities){const pr=await tx.execute({sql:"SELECT id,name,category,price,stock,active,variant_stock FROM products WHERE id=?",args:[id]});const product:any=pr.rows[0];if(!product||!product.active)throw Object.assign(new Error("UNAVAILABLE"),{code:"UNAVAILABLE"});const vs=safeJsonParse<any>(product.variant_stock,{}), matching=items.filter((x:any)=>Number(x.product_id)===id);if(Object.keys(vs).length){for(const item of matching){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`,q=Math.floor(Number(item.quantity));if(Number(vs[key]??0)<q)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}else if(Number(product.stock)<qty)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"});for(const item of matching)normalized.push({product_id:id,product_name:product.name,price:Number(product.price),quantity:Math.floor(Number(item.quantity)),selected_color:item.selected_color||null,selected_size:item.selected_size||null,category:product.category})}
+      const ids=Array.from(quantities.keys())
+      const productsResult=await tx.execute(`SELECT id,name,category,price,stock,active,variant_stock FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,ids)
+      const products=new Map((productsResult.rows as any[]).map(product=>[Number(product.id),product]))
+      for(const [id,qty] of quantities){const product:any=products.get(id);if(!product||!product.active)throw Object.assign(new Error("UNAVAILABLE"),{code:"UNAVAILABLE"});const vs=safeJsonParse<any>(product.variant_stock,{}), matching=items.filter((x:any)=>Number(x.product_id)===id);if(Object.keys(vs).length){for(const item of matching){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`,q=Math.floor(Number(item.quantity));if(Number(vs[key]??0)<q)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}else if(Number(product.stock)<qty)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"});for(const item of matching)normalized.push({product_id:id,product_name:product.name,price:Number(product.price),quantity:Math.floor(Number(item.quantity)),selected_color:item.selected_color||null,selected_size:item.selected_size||null,category:product.category})}
       const subtotal=normalized.reduce((sum,x)=>sum+x.price*x.quantity,0);let discount=0,coupon:any=null
       if(coupon_code){const cr=await tx.execute({sql:"SELECT * FROM coupons WHERE code=?",args:[String(coupon_code).trim().toUpperCase()]});coupon=cr.rows[0];discount=couponDiscount(coupon,subtotal,normalized);if(!coupon||discount<=0)throw Object.assign(new Error("BAD_COUPON"),{code:"BAD_COUPON"})}
       const finalTotal=Math.max(0,subtotal-discount);if(total!==undefined&&Math.abs(Number(total)-finalTotal)>0.01)throw Object.assign(new Error("PRICE_CHANGED"),{code:"PRICE_CHANGED"})
       let trackingCode=generateTrackingCode(); for(let i=0;i<5;i++){const c=await tx.execute({sql:"SELECT 1 FROM orders WHERE tracking_code=?",args:[trackingCode]});if(!c.rows[0])break;trackingCode=generateTrackingCode()}
       const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[customer_name,phone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
       for(const item of normalized)await tx.execute({sql:"INSERT INTO order_items(order_id,product_id,product_name,price,quantity,selected_color,selected_size) VALUES(?,?,?,?,?,?,?)",args:[orderId,item.product_id,item.product_name,item.price,item.quantity,item.selected_color,item.selected_size]})
-      for(const [id,qty] of quantities){const current=await tx.execute({sql:"SELECT stock,variant_stock FROM products WHERE id=?",args:[id]});const row:any=current.rows[0],vs=safeJsonParse<any>(row.variant_stock,{});if(Object.keys(vs).length){for(const item of normalized.filter(x=>x.product_id===id)){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`;vs[key]=Number(vs[key]||0)-item.quantity;if(vs[key]<0)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}const u=await tx.execute({sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=?",args:[totalVariantStock(vs),JSON.stringify(vs),id]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}else{const u=await tx.execute({sql:"UPDATE products SET stock=stock-? WHERE id=? AND stock>=?",args:[qty,id,qty]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}
+      for(const [id,qty] of quantities){const product:any=products.get(id),vs=safeJsonParse<any>(product.variant_stock,{});if(Object.keys(vs).length){for(const item of normalized.filter(x=>x.product_id===id)){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`;vs[key]=Number(vs[key]||0)-item.quantity;if(vs[key]<0)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}const u=await tx.execute({sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=?",args:[totalVariantStock(vs),JSON.stringify(vs),id]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}else{const u=await tx.execute({sql:"UPDATE products SET stock=stock-? WHERE id=? AND stock>=?",args:[qty,id,qty]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}
       if(coupon){const u=await tx.execute({sql:"UPDATE coupons SET used_count=used_count+1 WHERE id=? AND (max_uses=0 OR used_count<max_uses)",args:[coupon.id]});if(u.rowsAffected!==1)throw Object.assign(new Error("COUPON_EXHAUSTED"),{code:"BAD_COUPON"})}
       await tx.execute({sql:"INSERT INTO analytics_events(event_type,path,session_id,metadata) VALUES(?,?,?,?)",args:["purchase","/checkout",null,JSON.stringify({order_id:orderId,total:finalTotal})]})
       await tx.commit(); tx=null
@@ -286,8 +335,8 @@ const body =
   if (p.length===3&&p[0]==="orders"&&p[2]==="status"&&method==="PATCH") { const denied=await adminGuard(request);if(denied)return denied;try{const id=numberParam(p[1]),status=String((body as any)?.status||"");if(!id)return json({success:false,message:"الطلب غير موجود"},404);if(!allowedStatuses.includes(status))return json({success:false,message:"حالة الطلب غير صحيحة"},400);const r=await db.execute({sql:"UPDATE orders SET status=? WHERE id=?",args:[status,id]});if(!r.rowsAffected)return json({success:false,message:"الطلب غير موجود"},404);return json({success:true,message:"تم تحديث حالة الطلب"})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث الطلب"},500)} }
 
   // ---------- customers ----------
-  if (p.join("/")==="admin/customers"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT * FROM orders ORDER BY id DESC");const map=new Map<string,any>();for(const order of result.rows as any[]){const phone=String(order.phone||"").trim();if(!phone)continue;const existing=map.get(phone);if(!existing)map.set(phone,{customer_name:order.customer_name,phone,governorate:order.governorate,area:order.area,address:order.address,orders_count:1,total_spent:order.status==="ملغي"?0:Number(order.total||0),last_order_at:order.created_at,first_order_at:order.created_at});else{existing.orders_count+=1;if(order.status!=="ملغي")existing.total_spent+=Number(order.total||0);if(new Date(order.created_at).getTime()<new Date(existing.first_order_at).getTime())existing.first_order_at=order.created_at}}const customers=Array.from(map.values()).sort((a,b)=>new Date(b.last_order_at).getTime()-new Date(a.last_order_at).getTime());return json({success:true,customers})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب العملاء"},500)} }
-  if (p.length===4&&p[0]==="admin"&&p[1]==="customers"&&p[3]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const phone=String(p[2]||"").trim();if(!phone)return json({success:false,message:"رقم الهاتف غير صحيح"},400);const result=await db.execute({sql:"SELECT * FROM orders WHERE phone=? ORDER BY id DESC",args:[phone]});const orders=await Promise.all((result.rows as any[]).map(async order=>{const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return {...order,items:items.rows}}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب طلبات العميل"},500)} }
+  if (p.join("/")==="admin/customers"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const r=await db.execute("SELECT o.phone,COUNT(*) AS orders_count,SUM(CASE WHEN o.status='ملغي' THEN 0 ELSE o.total END) AS total_spent,MAX(o.created_at) AS last_order_at,MIN(o.created_at) AS first_order_at,(SELECT x.customer_name FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS customer_name,(SELECT x.governorate FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS governorate,(SELECT x.area FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS area,(SELECT x.address FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS address FROM orders o WHERE TRIM(COALESCE(o.phone,''))<>'' GROUP BY o.phone ORDER BY last_order_at DESC");const customers=(r.rows as any[]).map(x=>({...x,phone:String(x.phone).trim(),orders_count:Number(x.orders_count||0),total_spent:Number(x.total_spent||0)}));return json({success:true,customers})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب العملاء"},500)} }
+  if (p.length===4&&p[0]==="admin"&&p[1]==="customers"&&p[3]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const phone=String(p[2]||"").trim();if(!phone)return json({success:false,message:"رقم الهاتف غير صحيح"},400);const result=await db.execute({sql:"SELECT id,customer_name,phone,governorate,area,address,notes,total,status,tracking_code,created_at FROM orders WHERE phone=? ORDER BY id DESC",args:[phone]});const orderRows=result.rows as any[];const ids=orderRows.map(order=>Number(order.id));let itemRows:any[]=[];if(ids.length){const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids);itemRows=itemsResult.rows as any[]}const itemsByOrder=new Map<number,any[]>();for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب طلبات العميل"},500)} }
 
   // ---------- contact ----------
   if (p.join("/")==="contact"&&method==="POST") { try{const b:any=body;if(!b?.name||!b?.phone||!b?.message)return json({success:false,message:"من فضلك أكملي كل الحقول"},400);const r=await db.execute({sql:"INSERT INTO contact_messages(name,phone,message) VALUES(?,?,?)",args:[b.name,b.phone,b.message]});return json({success:true,id:Number(r.lastInsertRowid)})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء إرسال الرسالة"},500)} }
@@ -297,7 +346,7 @@ const body =
 
   // ---------- settings ----------
   if (p.join("/")==="settings"&&method==="GET") { try{const r=await db.execute("SELECT key,value FROM settings");return json({success:true,settings:Object.fromEntries((r.rows as any[]).map(x=>[x.key,x.value]))})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الإعدادات"},500)} }
-  if (p.join("/")==="admin/settings"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{for(const [key,value] of Object.entries((body as any)||{}))await db.execute({sql:"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",args:[key,String(value)]});revalidateTag("settings", "max");return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء حفظ الإعدادات"},500)} }
+  if (p.join("/")==="admin/settings"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{const statements=Object.entries((body as any)||{}).map(([key,value])=>({sql:"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",args:[key,String(value)]}));if(statements.length)await db.batch(statements,"write");revalidateTag("settings", "max");return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء حفظ الإعدادات"},500)} }
 
   // ---------- image upload ----------
   if (p.join("/")==="admin/upload"&&method==="POST") {
