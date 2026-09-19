@@ -24,7 +24,8 @@ import {
 } from "lucide-react"
 import {
   adminLogout,
-  fetchAdminOrders,
+  fetchAdminDashboardSummary,
+  type AdminDashboardSummary,
   getAdminToken,
   type ContactMessage,
   fetchContactMessages,
@@ -111,7 +112,7 @@ function statusIcon(status: string) {
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const [orders, setOrders] = useState<Order[]>([])
+  const [dashboard, setDashboard] = useState<AdminDashboardSummary | null>(null)
   const [messages, setMessages] = useState<ContactMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -123,11 +124,11 @@ export default function AdminDashboard() {
     setError("")
 
     try {
-      const [ordersData, messagesData] = await Promise.all([
-        fetchAdminOrders(),
+      const [dashboardData, messagesData] = await Promise.all([
+        fetchAdminDashboardSummary(),
         fetchContactMessages().catch(() => []),
       ])
-      setOrders(ordersData.orders as Order[])
+      setDashboard(dashboardData)
       setMessages(messagesData)
     } catch {
       setError("تعذر تحميل بيانات الداشبورد — تأكد من اتصال الباك إند")
@@ -154,71 +155,47 @@ export default function AdminDashboard() {
   }
 
   const stats = useMemo(() => {
-    const validOrders = orders.filter((order) => order.status !== "ملغي")
-    const todayOrders = validOrders.filter((order) => isToday(order.created_at))
-    const todayRevenue = todayOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
-    const allRevenue = validOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
-    const weekOrders = validOrders.filter((order) => isWithinDays(order.created_at, 7))
-    const weekRevenue = weekOrders.reduce((sum, order) => sum + Number(order.total || 0), 0)
-    const averageToday = todayOrders.length ? todayRevenue / todayOrders.length : 0
-
+    const source = dashboard?.stats
     return {
-      todayOrders,
-      todayRevenue,
-      allRevenue,
-      weekOrders,
-      weekRevenue,
-      averageToday,
-      newOrders: orders.filter((order) => order.status === "جديد").length,
-      preparing: orders.filter((order) => order.status === "جاري التجهيز").length,
-      shipping: orders.filter((order) => order.status === "تم الشحن").length,
-      delivered: orders.filter((order) => order.status === "تم التسليم").length,
-      canceled: orders.filter((order) => order.status === "ملغي").length,
+      todayOrders: source?.todayOrders || 0,
+      todayRevenue: source?.todayRevenue || 0,
+      allRevenue: source?.allRevenue || 0,
+      weekOrders: source?.weekOrders || 0,
+      weekRevenue: source?.weekRevenue || 0,
+      averageToday: source?.averageToday || 0,
+      totalOrders: source?.totalOrders || 0,
+      newOrders: source?.newOrders || 0,
+      preparing: source?.preparing || 0,
+      shipping: source?.shipping || 0,
+      delivered: source?.delivered || 0,
+      canceled: source?.canceled || 0,
       unreadMessages: messages.filter((message) => !message.is_read).length,
     }
-  }, [orders, messages])
+  }, [dashboard, messages])
 
   const last7Days = useMemo(() => {
+    const byDate = new Map((dashboard?.days || []).map((day) => [day.date, day]))
     const now = new Date()
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(now)
       date.setHours(0, 0, 0, 0)
       date.setDate(now.getDate() - (6 - index))
       const key = dayKey(date)
-      const dayOrders = orders.filter((order) => {
-        const orderDate = safeDate(order.created_at)
-        return order.status !== "ملغي" && orderDate ? dayKey(orderDate) === key : false
-      })
+      const day = byDate.get(key)
       return {
         date,
         label: formatShortDate(date),
-        orders: dayOrders.length,
-        revenue: dayOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+        orders: day?.orders || 0,
+        revenue: day?.revenue || 0,
       }
     })
-  }, [orders])
+  }, [dashboard])
+
+  const topProducts = dashboard?.topProducts || []
+  const recentOrders = (dashboard?.recentOrders || []) as Order[]
 
   const maxRevenue = Math.max(...last7Days.map((day) => day.revenue), 1)
 
-  const topProducts = useMemo(() => {
-    const map = new Map<string, { name: string; quantity: number; revenue: number }>()
-    orders.forEach((order) => {
-      if (order.status === "ملغي") return
-      ;(order.items || []).forEach((item) => {
-        const current = map.get(item.product_name) || { name: item.product_name, quantity: 0, revenue: 0 }
-        current.quantity += Number(item.quantity || 0)
-        current.revenue += Number(item.price || 0) * Number(item.quantity || 0)
-        map.set(item.product_name, current)
-      })
-    })
-    return Array.from(map.values()).sort((a, b) => b.quantity - a.quantity).slice(0, 5)
-  }, [orders])
-
-  const recentOrders = useMemo(() => {
-    return [...orders]
-      .sort((a, b) => (safeDate(b.created_at)?.getTime() || 0) - (safeDate(a.created_at)?.getTime() || 0))
-      .slice(0, 6)
-  }, [orders])
 
   const maxProductQty = Math.max(...topProducts.map((product) => product.quantity), 1)
 
@@ -281,7 +258,7 @@ export default function AdminDashboard() {
 
         <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard icon={<BarChart3 size={20} />} label="مبيعات اليوم" value={money(stats.todayRevenue)} note={`${stats.todayOrders.length} طلب اليوم`} />
-          <StatCard icon={<ShoppingBag size={20} />} label="طلبات اليوم" value={stats.todayOrders.length.toLocaleString("ar-EG")} note={`من ${orders.length.toLocaleString("ar-EG")} إجمالي الطلبات`} />
+          <StatCard icon={<ShoppingBag size={20} />} label="طلبات اليوم" value={stats.todayOrders.length.toLocaleString("ar-EG")} note={`من ${stats.totalOrders.toLocaleString("ar-EG")} إجمالي الطلبات`} />
           <StatCard icon={<Clock3 size={20} />} label="طلبات تحتاج متابعة" value={(stats.newOrders + stats.preparing).toLocaleString("ar-EG")} note={`${stats.newOrders} جديد · ${stats.preparing} تجهيز`} />
           <StatCard icon={<MessageCircle size={20} />} label="رسائل غير مقروءة" value={stats.unreadMessages.toLocaleString("ar-EG")} note="من صفحة تواصل معنا" />
         </div>
@@ -330,8 +307,8 @@ export default function AdminDashboard() {
 
             <div className="space-y-3">
               {STATUS_ORDER.map((status) => {
-                const count = orders.filter((order) => order.status === status).length
-                const percent = orders.length ? Math.round((count / orders.length) * 100) : 0
+                const count = dashboard?.statusCounts?.[status] || 0
+                const percent = stats.totalOrders ? Math.round((count / stats.totalOrders) * 100) : 0
                 return (
                   <div key={status}>
                     <div className="mb-1.5 flex items-center justify-between text-xs">
