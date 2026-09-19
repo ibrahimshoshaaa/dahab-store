@@ -42,7 +42,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
 }
 
 function s(settings: SiteSettings, key: string): string {
-  return resolvedSettings[key] ?? DEFAULT_SETTINGS[key] ?? ""
+  return settings[key] ?? DEFAULT_SETTINGS[key] ?? ""
 }
 
 export default function HomeClient() {
@@ -94,8 +94,6 @@ export default function HomeClient() {
     }, Math.min(60000, Math.max(1000, Number(resolvedSettings.hero_interval_seconds || 3) * 1000)))
     return () => window.clearInterval(timer)
   }, [heroImages.length, resolvedSettings.hero_interval_seconds])
-
-  if (!isLoaded) return <PageLoading />
 
   if (!isLoaded) return <PageLoading />
 
