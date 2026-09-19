@@ -7,7 +7,6 @@ import { fetchProducts, fetchSettings } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import ProductCardImages from "./ProductCardImages"
 import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lucide-react"
-import PageLoading from "./PageLoading"
 import SiteHeader from "./SiteHeader"
 import StoreFooter from "./StoreFooter"
 
@@ -47,29 +46,31 @@ function s(settings: SiteSettings, key: string): string {
 
 export default function HomeClient() {
   const [products, setProducts] = useState<ApiProduct[]>([])
-  const [settings, setSettings] = useState<SiteSettings>({})
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
   const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchProducts(), fetchSettings()])
-      .then(([data, nextSettings]) => {
-        if (cancelled) return
-        setProducts(data)
-        setSettings(nextSettings)
-        setIsLoaded(true)
+
+    // Render the first viewport immediately with safe defaults. Products/settings
+    // arrive independently so a slow API response cannot block the mobile shell.
+    fetchSettings()
+      .then((nextSettings) => {
+        if (!cancelled) setSettings(nextSettings)
       })
-      .catch(() => {
-        if (!cancelled) setIsLoaded(true)
+      .catch(() => {})
+
+    fetchProducts()
+      .then((data) => {
+        if (!cancelled) setProducts(data)
       })
+      .catch(() => {})
+
     return () => { cancelled = true }
   }, [])
 
-  const resolvedSettings: SiteSettings = Object.keys(settings).length
-    ? { ...DEFAULT_SETTINGS, ...settings }
-    : DEFAULT_SETTINGS
+  const resolvedSettings: SiteSettings = { ...DEFAULT_SETTINGS, ...settings }
 
   const accessoryItems = [
     [s(resolvedSettings, "accessories_item1_title"), s(resolvedSettings, "accessories_item1_image"), "/products?category=إكسسوارات"],
@@ -94,8 +95,6 @@ export default function HomeClient() {
     }, Math.min(60000, Math.max(1000, Number(resolvedSettings.hero_interval_seconds || 3) * 1000)))
     return () => window.clearInterval(timer)
   }, [heroImages.length, resolvedSettings.hero_interval_seconds])
-
-  if (!isLoaded) return <PageLoading />
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
@@ -172,7 +171,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Collection grid ── */}
-      <section className="mx-auto max-w-7xl px-5 py-12 sm:py-16 md:py-20">
+      <section className="content-auto mx-auto max-w-7xl px-5 py-12 sm:py-16 md:py-20">
 
         <div className="mb-8 text-center sm:mb-12">
           <p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">
@@ -225,7 +224,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Products grid ── */}
-      <section id="products" className="border-y border-black/5 bg-white py-20">
+      <section id="products" className="content-auto border-y border-black/5 bg-white py-20">
 
         <div className="mx-auto max-w-7xl px-5">
 
@@ -287,7 +286,7 @@ export default function HomeClient() {
 
       {/* ── Best sellers ── */}
       {products.some((p) => p.bestSeller) && (
-        <section className="mx-auto max-w-7xl px-5 py-20">
+        <section className="content-auto mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 flex items-end justify-between">
             <div><p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">DAHAB FAVORITES</p><h2 className="text-3xl font-light sm:text-4xl">الأكثر مبيعًا</h2><p className="mt-3 text-sm text-gray-500">اختيارات بتحبها عميلات دهب.</p></div>
             <Link href="/products" className="hidden text-sm sm:block">كل المنتجات ←</Link>
@@ -299,7 +298,7 @@ export default function HomeClient() {
       )}
 
       {/* ── Brand promise ── */}
-      <section className="bg-[var(--ink)] px-5 py-16 text-white">
+      <section className="content-auto bg-[var(--ink)] px-5 py-16 text-white">
         <div className="mx-auto grid max-w-5xl gap-8 text-center md:grid-cols-3 md:text-right">
           <div><p className="text-[11px] tracking-[0.25em] text-[var(--brand-soft)]">DAHAB QUALITY</p><h3 className="mt-2 text-xl font-light">تفاصيل تستحق الاختيار</h3><p className="mt-2 text-sm leading-7 text-white/60">تصميمات مختارة بعناية عشان كل قطعة تحسسك بالفرق.</p></div>
           <div><p className="text-[11px] tracking-[0.25em] text-[var(--brand-soft)]">EASY ORDER</p><h3 className="mt-2 text-xl font-light">اطلبيها في دقائق</h3><p className="mt-2 text-sm leading-7 text-white/60">اختاري، أضيفي للسلة، وسيبي علينا الباقي.</p></div>
@@ -308,7 +307,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Accessories ── */}
-      <section id="accessories" className="mx-auto max-w-7xl px-5 py-20">
+      <section id="accessories" className="content-auto mx-auto max-w-7xl px-5 py-20">
 
         <div className="mb-12 text-center">
           <p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">
@@ -337,7 +336,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Features bar ── */}
-      <section className="border-y border-black/5 bg-white">
+      <section className="content-auto border-y border-black/5 bg-white">
         <div className="mx-auto grid max-w-7xl grid-cols-2 md:grid-cols-4">
           {[
             [Truck, "شحن سريع", "لجميع المحافظات"],
@@ -358,7 +357,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Newsletter ── */}
-      <section className="bg-[var(--surface)] px-5 py-20 text-center">
+      <section className="content-auto bg-[var(--surface)] px-5 py-20 text-center">
         <p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">STAY IN TOUCH</p>
         <h2 className="text-3xl font-light">كوني أول من يعرف جديد دهب</h2>
         <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-gray-500">
