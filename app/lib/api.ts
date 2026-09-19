@@ -245,6 +245,34 @@ export async function fetchAdminOrders(options: { page?: number; limit?: number;
   }
 }
 
+export type AdminDashboardSummary = {
+  stats: {
+    totalOrders: number
+    validOrders: number
+    allRevenue: number
+    todayOrders: number
+    todayRevenue: number
+    weekOrders: number
+    weekRevenue: number
+    averageToday: number
+    newOrders: number
+    preparing: number
+    shipping: number
+    delivered: number
+    canceled: number
+  }
+  statusCounts: Record<string, number>
+  days: { date: string; orders: number; revenue: number }[]
+  topProducts: { name: string; quantity: number; revenue: number }[]
+  recentOrders: Record<string, unknown>[]
+}
+
+export async function fetchAdminDashboardSummary(): Promise<AdminDashboardSummary> {
+  const tzOffsetMinutes = typeof window !== "undefined" ? new Date().getTimezoneOffset() : 0
+  const data = await adminFetch(`/api/admin/orders/summary?tzOffsetMinutes=${encodeURIComponent(String(tzOffsetMinutes))}`)
+  return data as AdminDashboardSummary
+}
+
 export async function updateOrderStatus(id: number, status: string) {
   return adminFetch(`/api/orders/${id}/status`, {
     method: "PATCH",
