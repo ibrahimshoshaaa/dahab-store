@@ -20,7 +20,7 @@ export default function ProductCardImages({
   const touchStartX = useRef<number | null>(null)
   const dragged = useRef(false)
 
-  const safeImages = images.length > 0 ? images : [""]
+  const safeImages = images.filter(Boolean)
 
   function goTo(nextIndex: number) {
     const total = safeImages.length
@@ -65,7 +65,11 @@ export default function ProductCardImages({
     }
   }
 
-  if (safeImages.length <= 1) {
+  if (safeImages.length === 0) {
+    return <div className="h-full w-full bg-[var(--surface)]" aria-label={alt} />
+  }
+
+  if (safeImages.length === 1) {
     return <Image src={safeImages[0]} alt={alt} fill sizes="(max-width: 768px) 50vw, 25vw" className={imgClassName} />
   }
 
