@@ -92,3 +92,5 @@ Required variables:
 
 `ADMIN_TOKEN_TTL_SECONDS` is optional and defaults to 8 hours.
 
+
+<!-- CI refresh -->
