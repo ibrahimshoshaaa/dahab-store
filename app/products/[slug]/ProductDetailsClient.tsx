@@ -96,7 +96,7 @@ export default function ProductDetailsClient({
         if ("requestIdleCallback" in window) {
           idleId = window.requestIdleCallback(loadSecondaryData, { timeout: 1200 })
         } else {
-          timeoutId = window.setTimeout(loadSecondaryData, 300)
+          timeoutId = globalThis.setTimeout(loadSecondaryData, 300)
         }
       }
     }
@@ -109,7 +109,7 @@ export default function ProductDetailsClient({
         window.cancelIdleCallback(idleId)
       }
       if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId)
+        globalThis.clearTimeout(timeoutId)
       }
     }
   }, [slug, initialProduct])
