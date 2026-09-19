@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
+import { unstable_cache } from "next/cache"
 import "./globals.css"
 import { CartProvider } from "./context/CartContext"
 import { FavoritesProvider } from "./context/FavoritesContext"
 import PwaRegister from "./components/PwaRegister"
 import { db, ensureDb } from "./lib/server/db"
-export const dynamic = "force-dynamic"
 import {
   resolveTheme,
   buildGoogleFontsUrl,
@@ -16,18 +16,20 @@ import {
 
 // نجيب إعدادات الثيم بكاش قصير (ISR) بدل no-store، عشان الموقع يفضل
 // صفحات ثابتة/سريعة، وفي نفس الوقت أي تغيير من لوحة الأدمن يظهر خلال دقيقة.
-async function fetchThemeSettings(): Promise<Record<string, string>> {
-  try {
-    await ensureDb()
-    const result = await db.execute("SELECT key,value FROM settings")
-    const rows = result.rows as unknown as Array<{ key: unknown; value: unknown }>
-    return Object.fromEntries(
-      rows.map((row) => [String(row.key), String(row.value)])
-    )
-  } catch {
-    return {}
-  }
-}
+const fetchThemeSettings = unstable_cache(
+  async (): Promise<Record<string, string>> => {
+    try {
+      await ensureDb()
+      const result = await db.execute("SELECT key,value FROM settings")
+      const rows = result.rows as unknown as Array<{ key: unknown; value: unknown }>
+      return Object.fromEntries(rows.map((row) => [String(row.key), String(row.value)]))
+    } catch {
+      return {}
+    }
+  },
+  ["dahab-theme-settings"],
+  { revalidate: 60, tags: ["settings"] }
+)
 
 export const metadata: Metadata = {
   title: "DAHAB | دهب — عبايات وإكسسوارات",
@@ -35,7 +37,7 @@ export const metadata: Metadata = {
   applicationName: "DAHAB",
   keywords: ["دهب", "Dahab", "عبايات", "عبايات مصرية", "إكسسوارات"],
   alternates: { canonical: "/" },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.ninetypay.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dahab-store.vercel.app"),
   openGraph: {
     title: "DAHAB | دهب",
     description: "عبايات مصرية وإكسسوارات مختارة بعناية.",
