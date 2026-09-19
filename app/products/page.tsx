@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Search, SlidersHorizontal, Heart, X, ShoppingBag } from "lucide-react"
 import { products as mockProducts, type Product } from "../data/products"
 import { fetchProducts } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
-import PageLoading from "../components/PageLoading"
 
 function ProductsContent() {
   const searchParams = useSearchParams()
@@ -17,7 +17,6 @@ function ProductsContent() {
   const initialCategory = urlCategory ?? "الكل"
 
   const [products, setProducts] = useState<Product[]>(mockProducts)
-  const [isLoaded, setIsLoaded] = useState(false)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState(initialCategory)
   const [sort, setSort] = useState("default")
@@ -25,9 +24,9 @@ function ProductsContent() {
   const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
-    fetchProducts()
-      .then(setProducts)
-      .finally(() => setIsLoaded(true))
+    fetchProducts().then((data) => {
+      if (data.length) setProducts(data)
+    })
   }, [])
 
   const filteredProducts = useMemo(() => {
@@ -52,10 +51,6 @@ function ProductsContent() {
 
     return result
   }, [search, category, sort, products])
-
-  if (!isLoaded) {
-    return <PageLoading />
-  }
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)]">
@@ -131,10 +126,12 @@ function ProductsContent() {
               className="group"
             >
               <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#eee]">
-                <img
+                <Image
                   src={product.images?.[0] || product.image}
                   alt={product.name}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  fill
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="object-cover transition duration-500 group-hover:scale-105"
                 />
 
                 {product.badge && <span className="absolute right-3 top-3 rounded-full bg-white px-3 py-1 text-xs">{product.badge}</span>}
