@@ -10,6 +10,7 @@ import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lu
 import SiteLogo from "./components/SiteLogo"
 import SiteHeader from "./components/SiteHeader"
 import StoreFooter from "./components/StoreFooter"
+import PageLoading from "./components/PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
@@ -48,6 +49,7 @@ function s(settings: SiteSettings, key: string): string {
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(mockProducts)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
+  const [isLoaded, setIsLoaded] = useState(false)
   const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
 
@@ -57,7 +59,7 @@ export default function Home() {
       fetchSettings().then((data) => {
         if (Object.keys(data).length > 0) setSettings(data)
       }),
-    ])
+    ]).finally(() => setIsLoaded(true))
   }, [])
 
   const accessoryItems = [
@@ -84,6 +86,8 @@ export default function Home() {
     return () => window.clearInterval(timer)
   }, [heroImages.length, settings.hero_interval_seconds])
 
+
+  if (!isLoaded) return <PageLoading />
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
