@@ -240,8 +240,8 @@ export default function AdminDashboard() {
         )}
 
         <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard icon={<BarChart3 size={20} />} label="مبيعات اليوم" value={money(stats.todayRevenue)} note={`${stats.todayOrders.length} طلب اليوم`} />
-          <StatCard icon={<ShoppingBag size={20} />} label="طلبات اليوم" value={stats.todayOrders.length.toLocaleString("ar-EG")} note={`من ${stats.totalOrders.toLocaleString("ar-EG")} إجمالي الطلبات`} />
+          <StatCard icon={<BarChart3 size={20} />} label="مبيعات اليوم" value={money(stats.todayRevenue)} note={`${stats.todayOrders} طلب اليوم`} />
+          <StatCard icon={<ShoppingBag size={20} />} label="طلبات اليوم" value={stats.todayOrders.toLocaleString("ar-EG")} note={`من ${stats.totalOrders.toLocaleString("ar-EG")} إجمالي الطلبات`} />
           <StatCard icon={<Clock3 size={20} />} label="طلبات تحتاج متابعة" value={(stats.newOrders + stats.preparing).toLocaleString("ar-EG")} note={`${stats.newOrders} جديد · ${stats.preparing} تجهيز`} />
           <StatCard icon={<MessageCircle size={20} />} label="رسائل غير مقروءة" value={stats.unreadMessages.toLocaleString("ar-EG")} note="من صفحة تواصل معنا" />
         </div>
