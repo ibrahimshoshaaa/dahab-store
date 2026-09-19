@@ -5,6 +5,7 @@ import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
 import { createAdminToken, getAdminTokenFromRequest, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
 import { clientIp, rateLimit } from "@/app/lib/server/rate-limit"
 import { couponDiscount, json, parseProduct, readJson, safeJsonParse, slugify } from "@/app/lib/server/utils"
+import { normalizeEgyptianPhone } from "@/app/lib/validation.mjs"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -403,7 +404,8 @@ const body =
     let tx:any=null
     try {
       const b:any=body,{customer_name,phone,governorate,area,address,notes,items,total,coupon_code}=b
-      if(!customer_name||!phone||!governorate||!area||!address||!Array.isArray(items)||items.length===0)return json({success:false,message:"بيانات الطلب غير مكتملة"},400)
+      const normalizedPhone=normalizeEgyptianPhone(phone)
+      if(!customer_name||!normalizedPhone||!governorate||!area||!address||!Array.isArray(items)||items.length===0)return json({success:false,message:"بيانات الطلب غير مكتملة أو رقم الهاتف غير صحيح"},400)
       const quantities=new Map<number,number>(); for(const item of items){const id=Number(item.product_id),q=Math.floor(Number(item.quantity));if(!Number.isInteger(id)||id<=0||!Number.isInteger(q)||q<=0)return json({success:false,message:"بيانات المنتجات غير صحيحة"},400);quantities.set(id,(quantities.get(id)||0)+q)}
       tx=await db.transaction("write")
       const normalized:any[]=[]
@@ -415,7 +417,7 @@ const body =
       if(coupon_code){const cr=await tx.execute({sql:"SELECT * FROM coupons WHERE code=?",args:[String(coupon_code).trim().toUpperCase()]});coupon=cr.rows[0];discount=couponDiscount(coupon,subtotal,normalized);if(!coupon||discount<=0)throw Object.assign(new Error("BAD_COUPON"),{code:"BAD_COUPON"})}
       const finalTotal=Math.max(0,subtotal-discount);if(total!==undefined&&Math.abs(Number(total)-finalTotal)>0.01)throw Object.assign(new Error("PRICE_CHANGED"),{code:"PRICE_CHANGED"})
       let trackingCode=generateTrackingCode(); for(let i=0;i<5;i++){const c=await tx.execute({sql:"SELECT 1 FROM orders WHERE tracking_code=?",args:[trackingCode]});if(!c.rows[0])break;trackingCode=generateTrackingCode()}
-      const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[customer_name,phone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
+      const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[String(customer_name).trim(),normalizedPhone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
       for(const item of normalized)await tx.execute({sql:"INSERT INTO order_items(order_id,product_id,product_name,price,quantity,selected_color,selected_size) VALUES(?,?,?,?,?,?,?)",args:[orderId,item.product_id,item.product_name,item.price,item.quantity,item.selected_color,item.selected_size]})
       for(const [id,qty] of quantities){
         const product:any=products.get(id)
@@ -462,7 +464,7 @@ const body =
       const message=String(b?.message||"").trim()
       if(!name||!phone||!message)return json({success:false,message:"من فضلك أكملي كل الحقول"},400)
       if(name.length>80||phone.length>30||message.length>1000)return json({success:false,message:"البيانات المدخلة طويلة جدًا"},400)
-      if(!/^[0-9+()\s.-]{7,30}$/.test(phone))return json({success:false,message:"رقم الهاتف غير صحيح"},400)
+      if(!normalizeEgyptianPhone(phone))return json({success:false,message:"رقم الهاتف غير صحيح"},400)
       const r=await db.execute({sql:"INSERT INTO contact_messages(name,phone,message) VALUES(?,?,?)",args:[name,phone,message]})
       return json({success:true,id:Number(r.lastInsertRowid)})
     }catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء إرسال الرسالة"},500)}
