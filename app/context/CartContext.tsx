@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import type { Product } from "../data/products"
 import { checkCartStock } from "../lib/api"
+import { sanitizeCartItems } from "../lib/validation.mjs"
 
 export type CartItem = Product & {
   quantity: number
@@ -41,7 +42,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const saved = localStorage.getItem("dahab-cart")
     if (saved) {
-      try { setCart(JSON.parse(saved)) } catch { localStorage.removeItem("dahab-cart") }
+      try {
+        const sanitized = sanitizeCartItems(JSON.parse(saved))
+        setCart(sanitized)
+        if (sanitized.length === 0) localStorage.removeItem("dahab-cart")
+        else localStorage.setItem("dahab-cart", JSON.stringify(sanitized))
+      } catch { localStorage.removeItem("dahab-cart") }
     }
     setMounted(true)
   }, [])
