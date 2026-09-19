@@ -12,6 +12,7 @@ import {
 import { fetchSettings, type SiteSettings } from "../lib/api"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
+import PageLoading from "../components/PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   shipping_fast_governorates: "القاهرة, الجيزة, القليوبية, الإسكندرية",
@@ -47,11 +48,7 @@ export default function ShippingPage() {
   }, [])
 
   if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--brand)] border-t-transparent" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   const governoratesFast = toList(s(settings, "shipping_fast_governorates"))
