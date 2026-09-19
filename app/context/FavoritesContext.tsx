@@ -34,8 +34,9 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!mounted) return
     localStorage.setItem("dahab-favorites", JSON.stringify(favorites))
-  }, [favorites])
+  }, [favorites, mounted])
 
   function toggleFavorite(product: Product) {
     setFavorites((current) => {
