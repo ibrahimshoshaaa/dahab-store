@@ -1,15 +1,15 @@
 "use client";
 import { useEffect, useState } from "react"
-import { products as mockProducts, type Product } from "./data/products"
 import Link from "next/link"
 import Image from "next/image"
-import type { SiteSettings, ApiProduct } from "./lib/api"
-import { useFavorites } from "./context/FavoritesContext"
-import ProductCardImages from "./components/ProductCardImages"
-
-import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lucide-react";
-import SiteHeader from "./components/SiteHeader"
-import StoreFooter from "./components/StoreFooter"
+import type { SiteSettings, ApiProduct } from "../lib/api"
+import { fetchProducts, fetchSettings } from "../lib/api"
+import { useFavorites } from "../context/FavoritesContext"
+import ProductCardImages from "./ProductCardImages"
+import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lucide-react"
+import PageLoading from "./PageLoading"
+import SiteHeader from "./SiteHeader"
+import StoreFooter from "./StoreFooter"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
@@ -42,14 +42,34 @@ const DEFAULT_SETTINGS: SiteSettings = {
 }
 
 function s(settings: SiteSettings, key: string): string {
-  return settings[key] ?? DEFAULT_SETTINGS[key] ?? ""
+  return resolvedSettings[key] ?? DEFAULT_SETTINGS[key] ?? ""
 }
 
-export default function HomeClient({ initialProducts, initialSettings }: { initialProducts: ApiProduct[]; initialSettings: SiteSettings }) {
-  const [products] = useState<Product[]>(initialProducts.length ? initialProducts : mockProducts)
-  const [settings] = useState<SiteSettings>(Object.keys(initialSettings).length ? { ...DEFAULT_SETTINGS, ...initialSettings } : DEFAULT_SETTINGS)
+export default function HomeClient() {
+  const [products, setProducts] = useState<ApiProduct[]>([])
+  const [settings, setSettings] = useState<SiteSettings>({})
+  const [isLoaded, setIsLoaded] = useState(false)
   const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([fetchProducts(), fetchSettings()])
+      .then(([data, nextSettings]) => {
+        if (cancelled) return
+        setProducts(data)
+        setSettings(nextSettings)
+        setIsLoaded(true)
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoaded(true)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const resolvedSettings: SiteSettings = Object.keys(settings).length
+    ? { ...DEFAULT_SETTINGS, ...settings }
+    : DEFAULT_SETTINGS
 
   const accessoryItems = [
     [s(resolvedSettings, "accessories_item1_title"), s(resolvedSettings, "accessories_item1_image"), "/products?category=إكسسوارات"],
@@ -58,8 +78,8 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
 
   const heroImages = Array.from({ length: 8 }, (_, index) => {
     const key = `hero_image_${index + 1}`
-    if (index === 0) return settings.hero_image_1 || settings.hero_image || s(resolvedSettings, key)
-    return settings[key] || ""
+    if (index === 0) return resolvedSettings.hero_image_1 || resolvedSettings.hero_image || s(resolvedSettings, key)
+    return resolvedSettings[key] || ""
   }).filter(Boolean)
   // توافق مع الإصدارات القديمة التي كانت تستخدم hero_image بدل hero_image_1.
   if (!heroImages.length && s(resolvedSettings, "hero_image")) heroImages.push(s(resolvedSettings, "hero_image"))
@@ -71,9 +91,11 @@ export default function HomeClient({ initialProducts, initialSettings }: { initi
     }
     const timer = window.setInterval(() => {
       setActiveHero((current) => (current + 1) % heroImages.length)
-    }, Math.min(60000, Math.max(1000, Number(settings.hero_interval_seconds || 3) * 1000)))
+    }, Math.min(60000, Math.max(1000, Number(resolvedSettings.hero_interval_seconds || 3) * 1000)))
     return () => window.clearInterval(timer)
   }, [heroImages.length, resolvedSettings.hero_interval_seconds])
+
+  if (!isLoaded) return <PageLoading />
 
   if (!isLoaded) return <PageLoading />
 
