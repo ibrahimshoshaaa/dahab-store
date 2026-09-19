@@ -14,7 +14,8 @@ function isStandalone() {
 }
 
 function isIos() {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent)
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 }
 
 export default function PwaRegister() {
@@ -48,7 +49,9 @@ export default function PwaRegister() {
 
     window.addEventListener("appinstalled", installedHandler)
 
-    if (iosDevice) setShow(true)
+    if (iosDevice && sessionStorage.getItem("dahab-pwa-install-dismissed") !== "1") {
+      setShow(true)
+    }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler)
@@ -68,7 +71,7 @@ export default function PwaRegister() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold">ثبّتي Dahab على الآيفون</p>
-              <button onClick={() => setShow(false)} aria-label="إغلاق"><X size={18} /></button>
+              <button onClick={() => { sessionStorage.setItem("dahab-pwa-install-dismissed", "1"); setShow(false) }} aria-label="إغلاق"><X size={18} /></button>
             </div>
             <p className="mt-1 text-xs leading-5 text-gray-500">
               من Safari اضغطي مشاركة ثم «إضافة إلى الشاشة الرئيسية» لفتح المتجر كتطبيق.
