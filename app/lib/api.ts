@@ -9,6 +9,32 @@ export type ApiProduct = Product & {
 
 // ---------- public: products ----------
 
+/**
+ * Required homepage data: unlike the legacy helpers below, these functions
+ * propagate API/Turso failures so the homepage stays on its loading state.
+ */
+let clientRequiredProductsCache: { expiresAt: number; promise: Promise<ApiProduct[]> } | null = null
+
+export async function fetchProductsRequired(): Promise<ApiProduct[]> {
+  if (typeof window !== "undefined" && clientRequiredProductsCache && clientRequiredProductsCache.expiresAt > Date.now()) {
+    return clientRequiredProductsCache.promise
+  }
+
+  const request = (async () => {
+    const res = await fetch(`${API_URL}/api/products`, { next: { revalidate: 60, tags: ["products"] } })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.message || "تعذر تحميل المنتجات")
+    return data.products as ApiProduct[]
+  })()
+
+  if (typeof window !== "undefined") {
+    clientRequiredProductsCache = { expiresAt: Date.now() + 60_000, promise: request }
+  }
+
+  return request
+}
+
+
 let clientProductsCache: { expiresAt: number; promise: Promise<ApiProduct[]> } | null = null
 
 export async function fetchProducts(): Promise<ApiProduct[]> {
@@ -279,6 +305,28 @@ export type AnalyticsSummary={days:number;counts:Record<string,number>;uniqueSes
 export async function fetchAnalytics(days:number){const data=await adminFetch(`/api/admin/analytics?days=${days}`);return data as AnalyticsSummary}
 
 // ---------- settings ----------
+
+let clientRequiredSettingsCache: { expiresAt: number; promise: Promise<SiteSettings> } | null = null
+
+export async function fetchSettingsRequired(): Promise<SiteSettings> {
+  if (typeof window !== "undefined" && clientRequiredSettingsCache && clientRequiredSettingsCache.expiresAt > Date.now()) {
+    return clientRequiredSettingsCache.promise
+  }
+
+  const request = (async () => {
+    const res = await fetch(`${API_URL}/api/settings`, { next: { revalidate: 60, tags: ["settings"] } })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.message || "تعذر تحميل إعدادات الموقع")
+    return data.settings as SiteSettings
+  })()
+
+  if (typeof window !== "undefined") {
+    clientRequiredSettingsCache = { expiresAt: Date.now() + 60_000, promise: request }
+  }
+
+  return request
+}
+
 
 export type SiteSettings = Record<string, string>
 
