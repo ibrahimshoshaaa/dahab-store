@@ -138,6 +138,7 @@ export default function CheckoutPage() {
       setOrderTotal(Math.max(0, cartTotal - discount))
       trackEvent({event_type:"purchase",path:"/checkout",metadata:{order_id:orderId,total:Math.max(0,cartTotal-discount)}} as any)
       setSubmitted(true)
+      if (typeof window !== "undefined") sessionStorage.removeItem("dahab-order-idempotency-key")
       clearCart()
     } catch (err) {
       setError(
