@@ -18,9 +18,8 @@ export async function fetchProducts(): Promise<ApiProduct[]> {
 
     return data.products
   } catch {
-    // Backend not reachable yet — fall back to local mock data so the
-    // storefront stays demoable even without the Express server running.
-    return mockProducts
+    if (process.env.NODE_ENV !== "production") return mockProducts
+    return []
   }
 }
 
@@ -37,7 +36,10 @@ export async function fetchProductBySlug(
 
     return data.product
   } catch {
-    return mockProducts.find((product) => product.slug === slug)
+    if (process.env.NODE_ENV !== "production") {
+      return mockProducts.find((product) => product.slug === slug)
+    }
+    return undefined
   }
 }
 
