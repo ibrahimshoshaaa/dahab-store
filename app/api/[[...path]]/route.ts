@@ -190,7 +190,45 @@ const body =
   }
   if (p.join("/") === "admin/analytics" && method === "GET") {
     const denied=await adminGuard(request);if(denied)return denied
-    try { const days=Math.min(90,Math.max(1,Number(url.searchParams.get("days")||30))),modifier=`-${days} days`;const events=await db.execute({sql:"SELECT event_type,product_id,path,session_id,created_at FROM analytics_events WHERE created_at>=datetime('now', ?) ORDER BY id DESC",args:[modifier]});const counts:any={page_view:0,product_view:0,add_to_cart:0,begin_checkout:0,purchase:0};for(const r of events.rows as any[])counts[r.event_type]=(counts[r.event_type]||0)+1;const uniqueSessions=new Set((events.rows as any[]).map(r=>r.session_id).filter(Boolean)).size;const products=await db.execute({sql:"SELECT product_id,COUNT(*) AS views FROM analytics_events WHERE event_type='product_view' AND created_at>=datetime('now', ?) AND product_id IS NOT NULL GROUP BY product_id ORDER BY views DESC LIMIT 10",args:[modifier]});const ids=(products.rows as any[]).map(r=>Number(r.product_id));let names:any[]=[];if(ids.length){const rs=await db.execute(`SELECT id,name FROM products WHERE id IN (${ids.map(()=>'?').join(',')})`,ids);names=rs.rows as any[]}const nameMap=Object.fromEntries(names.map(r=>[Number(r.id),r.name]));return json({success:true,days,counts,uniqueSessions,topProducts:(products.rows as any[]).map(r=>({product_id:Number(r.product_id),name:nameMap[Number(r.product_id)]||"منتج",views:Number(r.views)}))}) }catch(error){console.error(error);return json({success:false,message:"تعذر جلب الإحصائيات"},500)}
+    try {
+      const days=Math.min(90,Math.max(1,Number(url.searchParams.get("days")||30)))
+      const modifier=`-${days} days`
+      const [countsResult,sessionsResult,productsResult]=await Promise.all([
+        db.execute({
+          sql:"SELECT event_type,COUNT(*) AS count FROM analytics_events WHERE created_at>=datetime('now', ?) GROUP BY event_type",
+          args:[modifier],
+        }),
+        db.execute({
+          sql:"SELECT COUNT(DISTINCT session_id) AS count FROM analytics_events WHERE created_at>=datetime('now', ?) AND session_id IS NOT NULL AND session_id != ''",
+          args:[modifier],
+        }),
+        db.execute({
+          sql:"SELECT product_id,COUNT(*) AS views FROM analytics_events WHERE event_type='product_view' AND created_at>=datetime('now', ?) AND product_id IS NOT NULL GROUP BY product_id ORDER BY views DESC LIMIT 10",
+          args:[modifier],
+        }),
+      ])
+      const counts:any={page_view:0,product_view:0,add_to_cart:0,begin_checkout:0,purchase:0}
+      for(const row of countsResult.rows as any[])counts[row.event_type]=(counts[row.event_type]||0)+Number(row.count)
+      const uniqueSessions=Number((sessionsResult.rows as any[])[0]?.count||0)
+      const ids=(productsResult.rows as any[]).map(r=>Number(r.product_id))
+      let names:any[]=[]
+      if(ids.length){
+        const rs=await db.execute(`SELECT id,name FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,ids)
+        names=rs.rows as any[]
+      }
+      const nameMap=Object.fromEntries(names.map(r=>[Number(r.id),r.name]))
+      return json({
+        success:true,
+        days,
+        counts,
+        uniqueSessions,
+        topProducts:(productsResult.rows as any[]).map(r=>({
+          product_id:Number(r.product_id),
+          name:nameMap[Number(r.product_id)]||"منتج",
+          views:Number(r.views),
+        })),
+      })
+    }catch(error){console.error(error);return json({success:false,message:"تعذر جلب الإحصائيات"},500)}
   }
 
   // ---------- coupons ----------
@@ -297,7 +335,7 @@ const body =
 
   // ---------- settings ----------
   if (p.join("/")==="settings"&&method==="GET") { try{const r=await db.execute("SELECT key,value FROM settings");return json({success:true,settings:Object.fromEntries((r.rows as any[]).map(x=>[x.key,x.value]))})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الإعدادات"},500)} }
-  if (p.join("/")==="admin/settings"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{for(const [key,value] of Object.entries((body as any)||{}))await db.execute({sql:"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",args:[key,String(value)]});revalidateTag("settings", "max");return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء حفظ الإعدادات"},500)} }
+  if (p.join("/")==="admin/settings"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{const statements=Object.entries((body as any)||{}).map(([key,value])=>({sql:"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",args:[key,String(value)]}));if(statements.length)await db.batch(statements,"write");revalidateTag("settings", "max");return json({success:true})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء حفظ الإعدادات"},500)} }
 
   // ---------- image upload ----------
   if (p.join("/")==="admin/upload"&&method==="POST") {
