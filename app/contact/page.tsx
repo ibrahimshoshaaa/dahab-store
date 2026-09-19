@@ -12,6 +12,7 @@ import {
 import { fetchSettings, submitContactMessage, type SiteSettings } from "../lib/api"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
+import PageLoading from "../components/PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   contact_phone: "01000000000",
@@ -66,11 +67,7 @@ export default function ContactPage() {
   }
 
   if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--brand)] border-t-transparent" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (
