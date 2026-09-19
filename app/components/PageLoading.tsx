@@ -1,4 +1,4 @@
-import SiteLogo from "./components/SiteLogo"
+import SiteLogo from "./SiteLogo"
 
 function HeaderSkeleton() {
   return (
