@@ -225,7 +225,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Products grid ── */}
-      <section id="products" className="content-auto border-y border-black/5 bg-white py-20">
+      <section id="products" className="border-y border-black/5 bg-white py-20">
 
         <div className="mx-auto max-w-7xl px-5">
 
@@ -308,7 +308,7 @@ export default function HomeClient() {
       </section>
 
       {/* ── Accessories ── */}
-      <section id="accessories" className="content-auto mx-auto max-w-7xl px-5 py-20">
+      <section id="accessories" className="mx-auto max-w-7xl px-5 py-20">
 
         <div className="mb-12 text-center">
           <p className="mb-3 text-[11px] tracking-[0.3em] text-[var(--brand)]">
