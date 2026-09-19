@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Search, Heart, ShoppingBag, Menu, X, ArrowLeft } from "lucide-react"
 import { useCart } from "../context/CartContext"
 import { useFavorites } from "../context/FavoritesContext"
@@ -73,7 +74,7 @@ export default function SiteHeader() {
           </div>
           {query.trim() && <div className="max-h-[60vh] overflow-auto p-3">
             {results.length ? results.map((product) => <Link key={product.id} href={`/products/${product.slug}`} onClick={() => setSearchOpen(false)} className="flex items-center gap-4 rounded-2xl p-3 hover:bg-white">
-              <img src={product.image} alt={product.name} className="h-16 w-14 rounded-xl object-cover" />
+              <Image src={product.image} alt={product.name} width={56} height={64} sizes="56px" className="h-16 w-14 rounded-xl object-cover" />
               <div className="min-w-0 flex-1"><p className="text-xs text-gray-400">{product.category}</p><p className="truncate text-sm font-medium">{product.name}</p><p className="mt-1 text-sm">{product.price.toLocaleString("ar-EG")} جنيه</p></div><ArrowLeft size={17} />
             </Link>) : <p className="p-8 text-center text-sm text-gray-500">لا توجد نتائج مطابقة.</p>}
           </div>}
