@@ -69,8 +69,6 @@ export default function HomeClient() {
     return () => { cancelled = true }
   }, [])
 
-  if (!isLoaded) return <PageLoading />
-
   const resolvedSettings: SiteSettings = { ...DEFAULT_SETTINGS, ...settings }
 
   const accessoryItems = [
@@ -96,6 +94,8 @@ export default function HomeClient() {
     }, Math.min(60000, Math.max(1000, Number(resolvedSettings.hero_interval_seconds || 3) * 1000)))
     return () => window.clearInterval(timer)
   }, [heroImages.length, resolvedSettings.hero_interval_seconds])
+
+  if (!isLoaded) return <PageLoading />
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
