@@ -5,9 +5,9 @@ export function normalizeEgyptianPhone(value) {
     .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
 
   let local = raw
-  if (local.startsWith("+20")) local = local.slice(3)
-  else if (local.startsWith("0020")) local = local.slice(4)
-  else if (local.startsWith("20") && local.length === 13) local = local.slice(2)
+  if (local.startsWith("+20")) local = "0" + local.slice(3)
+  else if (local.startsWith("0020")) local = "0" + local.slice(4)
+  else if (local.startsWith("20") && local.length === 13) local = "0" + local.slice(2)
 
   if (!/^01[0125]\d{8}$/.test(local)) return null
   return local
