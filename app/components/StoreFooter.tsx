@@ -17,22 +17,24 @@ export default function StoreFooter() {
             <a aria-label="WhatsApp" href="https://wa.me/201000000000" target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><MessageCircle size={17} /></a>
           </div>
         </div>
-        <div>
-          <h3 className="mb-5 text-sm text-[var(--brand-soft)]">تسوقي</h3>
-          <div className="space-y-3 text-sm text-white/50">
-            <Link className="block hover:text-white" href="/products?category=عبايات">العبايات</Link>
-            <Link className="block hover:text-white" href="/products?category=إكسسوارات">الإكسسوارات</Link>
-            <Link className="block hover:text-white" href="/products">كل المنتجات</Link>
-            <Link className="block hover:text-white" href="/favorites">المفضلة</Link>
+        <div className="col-span-1 grid grid-cols-2 gap-8 md:col-span-2">
+          <div>
+            <h3 className="mb-5 text-sm text-[var(--brand-soft)]">تسوقي</h3>
+            <div className="space-y-3 text-sm text-white/50">
+              <Link className="block hover:text-white" href="/products?category=عبايات">العبايات</Link>
+              <Link className="block hover:text-white" href="/products?category=إكسسوارات">الإكسسوارات</Link>
+              <Link className="block hover:text-white" href="/products">كل المنتجات</Link>
+              <Link className="block hover:text-white" href="/favorites">المفضلة</Link>
+            </div>
           </div>
-        </div>
-        <div>
-          <h3 className="mb-5 text-sm text-[var(--brand-soft)]">مساعدة</h3>
-          <div className="space-y-3 text-sm text-white/50">
-            <Link className="block hover:text-white" href="/track">تتبع طلبك</Link>
-            <Link className="block hover:text-white" href="/contact">تواصل معنا</Link>
-            <Link className="block hover:text-white" href="/shipping">الشحن والتوصيل</Link>
-            <Link className="block hover:text-white" href="/returns">الاستبدال والاسترجاع</Link>
+          <div>
+            <h3 className="mb-5 text-sm text-[var(--brand-soft)]">مساعدة</h3>
+            <div className="space-y-3 text-sm text-white/50">
+              <Link className="block hover:text-white" href="/track">تتبع طلبك</Link>
+              <Link className="block hover:text-white" href="/contact">تواصل معنا</Link>
+              <Link className="block hover:text-white" href="/shipping">الشحن والتوصيل</Link>
+              <Link className="block hover:text-white" href="/returns">الاستبدال والاسترجاع</Link>
+            </div>
           </div>
         </div>
       </div>
