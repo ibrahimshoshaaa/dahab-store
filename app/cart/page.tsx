@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   ArrowRight,
   Minus,
@@ -127,12 +128,14 @@ export default function CartPage() {
 
                     <Link
                       href={`/products/${item.slug}`}
-                      className="h-32 w-24 shrink-0 overflow-hidden rounded-2xl bg-[var(--surface)] sm:h-40 sm:w-32"
+                      className="relative h-32 w-24 shrink-0 overflow-hidden rounded-2xl bg-[var(--surface)] sm:h-40 sm:w-32"
                     >
-                      <img
+                      <Image
                         src={item.image}
                         alt={item.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="96px"
+                        className="object-cover"
                       />
                     </Link>
 
