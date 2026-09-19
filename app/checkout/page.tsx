@@ -86,8 +86,8 @@ export default function CheckoutPage() {
       return () => window.cancelIdleCallback(idleId)
     }
 
-    const timeoutId = window.setTimeout(send, 500)
-    return () => window.clearTimeout(timeoutId)
+    const timeoutId = globalThis.setTimeout(send, 500)
+    return () => globalThis.clearTimeout(timeoutId)
   }, [cart.length])
 
   async function handleSubmit(e: React.FormEvent) {
