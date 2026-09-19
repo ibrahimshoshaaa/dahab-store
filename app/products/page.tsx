@@ -10,6 +10,7 @@ import { fetchProducts } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
+import PageLoading from "../components/PageLoading"
 
 function ProductsContent() {
   const searchParams = useSearchParams()
@@ -17,6 +18,7 @@ function ProductsContent() {
   const initialCategory = urlCategory ?? "الكل"
 
   const [products, setProducts] = useState<ApiProduct[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState(initialCategory)
   const [sort, setSort] = useState("default")
@@ -24,9 +26,23 @@ function ProductsContent() {
   const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
-    fetchProducts().then((data) => {
-      setProducts(data)
-    })
+    let cancelled = false
+
+    fetchProducts()
+      .then((data) => {
+        if (!cancelled) {
+          setProducts(data)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const filteredProducts = useMemo(() => {
@@ -51,6 +67,10 @@ function ProductsContent() {
 
     return result
   }, [search, category, sort, products])
+
+  if (isLoading) {
+    return <PageLoading />
+  }
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)]">
