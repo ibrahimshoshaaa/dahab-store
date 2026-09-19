@@ -36,6 +36,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [stockChecking, setStockChecking] = useState(false)
   const [stockMessages, setStockMessages] = useState<Record<string, string>>({})
   const [unavailableItems, setUnavailableItems] = useState<Set<string>>(new Set())
+  const [stockAvailability, setStockAvailability] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const saved = localStorage.getItem("dahab-cart")
@@ -53,12 +54,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!cart.length) {
       setStockMessages({})
       setUnavailableItems(new Set())
+      setStockAvailability({})
       return true
     }
 
     setStockChecking(true)
     setStockMessages({})
     setUnavailableItems(new Set())
+    setStockAvailability({})
 
     try {
       const results = await checkCartStock(cart.map((item) => ({
@@ -70,6 +73,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       const messages: Record<string, string> = {}
       const unavailable = new Set<string>()
+      const availability: Record<string, number> = {}
 
       setCart((current) => current.flatMap((item) => {
         const result = results.find((r) =>
@@ -80,6 +84,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (!result) return [item]
 
         const key = keyOf(item)
+        availability[key] = Math.max(0, Number(result.available) || 0)
         if (!result.active || result.available <= 0) {
           messages[key] = !result.active ? "المنتج لم يعد متاحًا" : "هذا المنتج نفد من المخزون"
           unavailable.add(key)
@@ -97,6 +102,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       setStockMessages(messages)
       setUnavailableItems(unavailable)
+      setStockAvailability(availability)
       return true
     } catch {
       setStockMessages({ _error: "تعذر التحقق من المخزون حاليًا. اضغطي إعادة التحقق." })
@@ -109,6 +115,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   function addToCart(product: Product, quantity = 1, selectedColor?: string, selectedSize?: string) {
     setStockMessages({})
     setUnavailableItems(new Set())
+    setStockAvailability({})
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id && item.selectedColor === selectedColor && item.selectedSize === selectedSize)
       if (existing) return current.map((item) => item === existing ? { ...item, quantity: Math.min(product.stock ?? 99, item.quantity + quantity) } : item)
@@ -122,8 +129,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   function updateQuantity(id: number, quantity: number, color?: string, size?: string) {
     if (quantity <= 0) { removeFromCart(id, color, size); return }
+
+    const key = keyOf({ id, selectedColor: color, selectedSize: size })
+    const knownAvailable = stockAvailability[key]
+
+    if (knownAvailable !== undefined) {
+      if (knownAvailable <= 0) {
+        setStockMessages((current) => ({ ...current, [key]: "هذا الاختيار نفد من المخزون" }))
+        setUnavailableItems((current) => new Set(current).add(key))
+        return
+      }
+
+      if (quantity > knownAvailable) {
+        setStockMessages((current) => ({
+          ...current,
+          [key]: `الكمية المطلوبة أكبر من المتاح. الحد الأقصى ${knownAvailable} قطعة`,
+        }))
+        setCart((current) => current.map((item) =>
+          item.id === id && item.selectedColor === color && item.selectedSize === size
+            ? { ...item, quantity: knownAvailable }
+            : item
+        ))
+        return
+      }
+    }
+
     setCart((current) => current.map((item) =>
-      item.id === id && item.selectedColor === color && item.selectedSize === size ? { ...item, quantity } : item
+      item.id === id && item.selectedColor === color && item.selectedSize === size
+        ? { ...item, quantity }
+        : item
     ))
   }
 
@@ -131,6 +165,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart([])
     setStockMessages({})
     setUnavailableItems(new Set())
+    setStockAvailability({})
   }
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0)
