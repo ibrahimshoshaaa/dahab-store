@@ -84,23 +84,6 @@ function formatShortDate(date: Date) {
   return date.toLocaleDateString("ar-EG", { weekday: "short", day: "numeric" })
 }
 
-function isToday(value: string) {
-  const date = safeDate(value)
-  if (!date) return false
-  const now = new Date()
-  return dayKey(date) === dayKey(now)
-}
-
-function isWithinDays(value: string, days: number) {
-  const date = safeDate(value)
-  if (!date) return false
-  const now = new Date()
-  const start = new Date(now)
-  start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() - (days - 1))
-  return date >= start && date <= now
-}
-
 function statusIcon(status: string) {
   if (status === "جديد") return <Sparkles size={15} />
   if (status === "تم التأكيد") return <CheckCircle2 size={15} />
