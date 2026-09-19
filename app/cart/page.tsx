@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import {
   ArrowRight,
@@ -21,7 +22,15 @@ export default function CartPage() {
     updateQuantity,
     removeFromCart,
     mounted,
+    stockChecking,
+    stockMessages,
+    unavailableItems,
+    refreshCartStock,
   } = useCart()
+
+  useEffect(() => {
+    if (mounted) void refreshCartStock()
+  }, [mounted])
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)]">
@@ -94,6 +103,19 @@ export default function CartPage() {
 
             <div className="space-y-4">
 
+              {stockMessages._error && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {stockMessages._error}
+                  <button onClick={() => void refreshCartStock()} className="mr-3 underline">إعادة التحقق</button>
+                </div>
+              )}
+
+              {stockChecking && (
+                <div className="rounded-2xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 px-4 py-3 text-sm text-gray-600">
+                  جارِ التحقق من توفر المنتجات والمقاسات والألوان...
+                </div>
+              )}
+
               {cart.map((item) => (
 
                 <div
@@ -148,6 +170,11 @@ export default function CartPage() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
+                        {stockMessages[`${item.id}-${item.selectedColor || ""}-${item.selectedSize || ""}`] && (
+                          <span className={`rounded-full px-3 py-1 text-xs ${unavailableItems.has(`${item.id}-${item.selectedColor || ""}-${item.selectedSize || ""}`) ? "bg-red-50 text-red-600" : "bg-[var(--brand)]/10 text-[var(--brand-dark)]"}`}>
+                            {stockMessages[`${item.id}-${item.selectedColor || ""}-${item.selectedSize || ""}`]}
+                          </span>
+                        )}
 
                         {item.selectedColor && (
                           <span className="rounded-full bg-[var(--bg)] px-3 py-1 text-xs text-gray-600">
@@ -270,8 +297,15 @@ export default function CartPage() {
               </div>
 
               <Link
-                href="/checkout"
-                className="mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-black py-4 text-sm text-white transition hover:bg-[var(--brand-dark)]"
+                href={stockChecking || unavailableItems.size > 0 || Boolean(stockMessages._error) ? "#" : "/checkout"}
+                onClick={(e) => {
+                  if (stockChecking || unavailableItems.size > 0 || stockMessages._error) {
+                    e.preventDefault()
+                    if (stockMessages._error) void refreshCartStock()
+                  }
+                }}
+                aria-disabled={stockChecking || unavailableItems.size > 0 || Boolean(stockMessages._error)}
+                className={`mt-7 flex w-full items-center justify-center gap-3 rounded-full bg-black py-4 text-sm text-white transition hover:bg-[var(--brand-dark)] ${stockChecking || unavailableItems.size > 0 || stockMessages._error ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 إتمام الطلب
                 <ArrowLeft size={18} />
