@@ -162,6 +162,61 @@ const body =
   if (p.length===3&&p[0]==="admin"&&p[1]==="coupons"&&method==="PUT") { const denied=await adminGuard(request);if(denied)return denied;try{const id=Number(p[2]),ex=await db.execute({sql:"SELECT * FROM coupons WHERE id=?",args:[id]});if(!ex.rows[0])return json({success:false,message:"الكوبون غير موجود"},404);const old:any=ex.rows[0],b:any=body,type=b.type??old.type,value=b.value!==undefined?Number(b.value):Number(old.value);if(!["percent","fixed"].includes(type)||value<0||(type==="percent"&&value>100))return json({success:false,message:"بيانات الكوبون غير صحيحة"},400);await db.execute({sql:"UPDATE coupons SET code=?,type=?,value=?,min_order=?,max_uses=?,expires_at=?,starts_at=?,max_discount=?,min_items=?,product_id=?,category=?,free_shipping=?,active=? WHERE id=?",args:[String(b.code??old.code).trim().toUpperCase(),type,value,Math.max(0,Number(b.minOrder??old.min_order)),Math.max(0,Number(b.maxUses??old.max_uses)),b.expiresAt===undefined?old.expires_at:(b.expiresAt||null),b.startsAt===undefined?old.starts_at:(b.startsAt||null),b.maxDiscount===undefined?old.max_discount:(b.maxDiscount===""||b.maxDiscount==null?null:Math.max(0,Number(b.maxDiscount))),Math.max(0,Number(b.minItems??old.min_items)),b.productId===undefined?old.product_id:(b.productId?Number(b.productId):null),b.category===undefined?old.category:(b.category||null),b.freeShipping===undefined?old.free_shipping:(b.freeShipping?1:0),b.active===undefined?old.active:(b.active?1:0),id]});return json({success:true})}catch(error){console.error(error);return json({success:false,message:"تعذر تعديل الكوبون"},400)} }
   if (p.length===3&&p[0]==="admin"&&p[1]==="coupons"&&method==="DELETE") { const denied=await adminGuard(request);if(denied)return denied;try{const r=await db.execute({sql:"DELETE FROM coupons WHERE id=?",args:[Number(p[2])]});if(!r.rowsAffected)return json({success:false,message:"الكوبون غير موجود"},404);return json({success:true})}catch(error){console.error(error);return json({success:false,message:"تعذر حذف الكوبون"},500)} }
 
+  // ---------- live cart stock ----------
+  if (p.join("/") === "cart/stock" && method === "POST") {
+    try {
+      const items = Array.isArray((body as any)?.items) ? (body as any).items.slice(0, 100) : []
+      if (!items.length) return json({ success: true, items: [] })
+
+      const normalized = items.map((item: any) => ({
+        product_id: Number(item.product_id),
+        quantity: Math.floor(Number(item.quantity)),
+        selected_color: item.selected_color ? String(item.selected_color) : undefined,
+        selected_size: item.selected_size ? String(item.selected_size) : undefined,
+      }))
+
+      const invalid = normalized.some((item: any) =>
+        !Number.isInteger(item.product_id) || item.product_id <= 0 ||
+        !Number.isInteger(item.quantity) || item.quantity <= 0
+      )
+      if (invalid) return json({ success: false, message: "بيانات السلة غير صحيحة" }, 400)
+
+      const ids = [...new Set(normalized.map((item: any) => item.product_id))]
+      const result = await db.execute(
+        `SELECT id, stock, active, variant_stock FROM products WHERE id IN (${ids.map(() => "?").join(",")})`,
+        ids
+      )
+      const products = new Map((result.rows as any[]).map((row) => [Number(row.id), row]))
+
+      const checked = normalized.map((item: any) => {
+        const product: any = products.get(item.product_id)
+        if (!product || !product.active) {
+          return { ...item, requested: item.quantity, available: 0, active: false }
+        }
+
+        const variants = safeJsonParse<any>(product.variant_stock, {})
+        let available = Number(product.stock ?? 0)
+
+        if (Object.keys(variants).length) {
+          const key = `${item.selected_color || "-"}|${item.selected_size || "-"}`
+          available = Number(variants[key] ?? 0)
+        }
+
+        return {
+          ...item,
+          requested: item.quantity,
+          available: Math.max(0, available),
+          active: true,
+        }
+      })
+
+      return json({ success: true, items: checked })
+    } catch (error) {
+      console.error(error)
+      return json({ success: false, message: "تعذر التحقق من المخزون" }, 500)
+    }
+  }
+
   // ---------- orders ----------
   if (p.join("/") === "orders" && method === "GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT * FROM orders ORDER BY id DESC");const orders=await Promise.all((result.rows as any[]).map(async order=>{const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return {...order,items:items.rows}}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)} }
 
