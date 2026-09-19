@@ -459,7 +459,41 @@ const body =
 
   if (p.length===3&&p[0]==="orders"&&p[1]==="track"&&method==="GET") { try{const code=String(p[2]).trim().toUpperCase();const r=await db.execute({sql:"SELECT * FROM orders WHERE tracking_code=?",args:[code]});if(!r.rows[0])return json({success:false,message:"لم يتم العثور على طلب بهذا الكود"},404);const order:any=r.rows[0],items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return json({success:true,order:{id:order.id,status:order.status,total:order.total,customer_name:order.customer_name,created_at:order.created_at},items:items.rows})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ"},500)} }
   if (p.length===2&&p[0]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied; try{const id=numberParam(p[1]);if(!id)return json({success:false,message:"الطلب غير موجود"},404);const r=await db.execute({sql:"SELECT * FROM orders WHERE id=?",args:[id]});if(!r.rows[0])return json({success:false,message:"الطلب غير موجود"},404);const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[id]});return json({success:true,order:r.rows[0],items:items.rows})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ"},500)} }
-  if (p.length===3&&p[0]==="orders"&&p[2]==="status"&&method==="PATCH") { const denied=await adminGuard(request);if(denied)return denied;try{const id=numberParam(p[1]),status=String((body as any)?.status||"");if(!id)return json({success:false,message:"الطلب غير موجود"},404);if(!allowedStatuses.includes(status))return json({success:false,message:"حالة الطلب غير صحيحة"},400);const r=await db.execute({sql:"UPDATE orders SET status=? WHERE id=?",args:[status,id]});if(!r.rowsAffected)return json({success:false,message:"الطلب غير موجود"},404);return json({success:true,message:"تم تحديث حالة الطلب"})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث الطلب"},500)} }
+  if (p.length===3&&p[0]==="orders"&&p[2]==="status"&&method==="PATCH") {
+    const denied=await adminGuard(request);if(denied)return denied
+    let tx:any=null
+    try{
+      const id=numberParam(p[1]),status=String((body as any)?.status||"")
+      if(!id)return json({success:false,message:"الطلب غير موجود"},404)
+      if(!allowedStatuses.includes(status))return json({success:false,message:"حالة الطلب غير صحيحة"},400)
+      tx=await db.transaction("write")
+      const orderResult=await tx.execute({sql:"SELECT id,status FROM orders WHERE id=?",args:[id]})
+      const order:any=orderResult.rows[0]
+      if(!order){await tx.rollback();tx=null;return json({success:false,message:"الطلب غير موجود"},404)}
+      if(order.status==="ملغي"&&status!=="ملغي"){await tx.rollback();tx=null;return json({success:false,message:"لا يمكن إعادة تفعيل طلب ملغي لأن المخزون تم إرجاعه"},409)}
+      if(order.status!=="ملغي"&&status==="ملغي"){
+        const itemsResult=await tx.execute({sql:"SELECT product_id,quantity,selected_color,selected_size FROM order_items WHERE order_id=?",args:[id]})
+        const quantities=new Map<number,any[]>();
+        for(const raw of itemsResult.rows as any[]){const productId=Number(raw.product_id);const list=quantities.get(productId)||[];list.push(raw);quantities.set(productId,list)}
+        for(const [productId,itemsForProduct] of quantities){
+          const productResult=await tx.execute({sql:"SELECT stock,variant_stock FROM products WHERE id=?",args:[productId]})
+          const product:any=productResult.rows[0]
+          if(!product) continue
+          const variants=safeJsonParse<any>(product.variant_stock,{})
+          if(Object.keys(variants).length){
+            for(const item of itemsForProduct){const key=String(item.selected_color||"-")+"|"+String(item.selected_size||"-");variants[key]=Number(variants[key]||0)+Math.max(0,Math.floor(Number(item.quantity)))}
+            await tx.execute({sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=?",args:[totalVariantStock(variants),JSON.stringify(variants),productId]})
+          }else{
+            const qty=itemsForProduct.reduce((sum,item)=>sum+Math.max(0,Math.floor(Number(item.quantity))),0)
+            await tx.execute({sql:"UPDATE products SET stock=stock+? WHERE id=?",args:[qty,productId]})
+          }
+        }
+      }
+      await tx.execute({sql:"UPDATE orders SET status=? WHERE id=?",args:[status,id]})
+      await tx.commit();tx=null
+      return json({success:true,message:"تم تحديث حالة الطلب"})
+    }catch(error){if(tx)try{await tx.rollback()}catch{};console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث الطلب"},500)}
+  }
 
   // ---------- customers ----------
   if (p.join("/")==="admin/customers"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const r=await db.execute("SELECT o.phone,COUNT(*) AS orders_count,SUM(CASE WHEN o.status='ملغي' THEN 0 ELSE o.total END) AS total_spent,MAX(o.created_at) AS last_order_at,MIN(o.created_at) AS first_order_at,(SELECT x.customer_name FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS customer_name,(SELECT x.governorate FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS governorate,(SELECT x.area FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS area,(SELECT x.address FROM orders x WHERE x.phone=o.phone ORDER BY x.id DESC LIMIT 1) AS address FROM orders o WHERE TRIM(COALESCE(o.phone,''))<>'' GROUP BY o.phone ORDER BY last_order_at DESC");const customers=(r.rows as any[]).map(x=>({...x,phone:String(x.phone).trim(),orders_count:Number(x.orders_count||0),total_spent:Number(x.total_spent||0)}));return json({success:true,customers})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب العملاء"},500)} }
