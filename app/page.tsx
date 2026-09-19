@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 import { products as mockProducts, type Product } from "./data/products"
 import Link from "next/link"
+import Image from "next/image"
 import { fetchProducts, fetchSettings, type SiteSettings } from "./lib/api"
 import { useFavorites } from "./context/FavoritesContext"
 import ProductCardImages from "./components/ProductCardImages"
@@ -10,7 +11,6 @@ import { Heart, ShoppingBag, ArrowLeft, Truck, RotateCcw, ShieldCheck } from "lu
 import SiteLogo from "./components/SiteLogo"
 import SiteHeader from "./components/SiteHeader"
 import StoreFooter from "./components/StoreFooter"
-import PageLoading from "./components/PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
   hero_image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90",
@@ -49,17 +49,18 @@ function s(settings: SiteSettings, key: string): string {
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(mockProducts)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
-  const [isLoaded, setIsLoaded] = useState(false)
   const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
 
   useEffect(() => {
     Promise.all([
-      fetchProducts().then(setProducts),
+      fetchProducts().then((data) => {
+        if (data.length) setProducts(data)
+      }),
       fetchSettings().then((data) => {
         if (Object.keys(data).length > 0) setSettings(data)
       }),
-    ]).finally(() => setIsLoaded(true))
+    ])
   }, [])
 
   const accessoryItems = [
@@ -87,8 +88,6 @@ export default function Home() {
   }, [heroImages.length, settings.hero_interval_seconds])
 
 
-  if (!isLoaded) return <PageLoading />
-
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
 
@@ -96,14 +95,25 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <section className="relative min-h-[420px] overflow-hidden sm:min-h-[520px] lg:min-h-[680px]">
-        {heroImages.map((image, index) => (
-          <div
-            key={`${image}-${index}`}
-            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out ${index === activeHero ? "opacity-100" : "opacity-0"}`}
-            style={{ backgroundImage: `url('${image}')` }}
-            aria-hidden={index !== activeHero}
-          />
-        ))}
+        {[activeHero, ...(heroImages.length > 1 ? [(activeHero + 1) % heroImages.length] : [])].map((index, position) => {
+          const image = heroImages[index]
+          return (
+            <div
+              key={`${image}-${index}`}
+              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === activeHero ? "opacity-100" : "opacity-0"}`}
+              aria-hidden={index !== activeHero}
+            >
+              <Image
+                src={image}
+                alt={position === 0 ? "مجموعة دهب" : ""}
+                fill
+                priority={position === 0}
+                sizes="100vw"
+                className="object-cover object-center"
+              />
+            </div>
+          )
+        })}
 
         <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/30 to-black/5" />
 
@@ -167,10 +177,12 @@ export default function Home() {
         <div className="grid gap-4 md:grid-cols-2 md:gap-5">
 
           <a href="#products" className="group relative h-[280px] overflow-hidden sm:h-[360px] md:h-[480px]">
-            <img
+            <Image
               src={s(settings, "collection_abaya_image")}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
               alt="العبايات"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover transition duration-700 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
             <div className="absolute bottom-8 right-8 text-white">
@@ -183,10 +195,12 @@ export default function Home() {
           </a>
 
           <a href="#accessories" className="group relative h-[280px] overflow-hidden sm:h-[360px] md:h-[480px]">
-            <img
+            <Image
               src={s(settings, "collection_accessories_image")}
-              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
               alt="الإكسسوارات"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover transition duration-700 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
             <div className="absolute bottom-8 right-8 text-white">
@@ -299,10 +313,12 @@ export default function Home() {
         <div className="grid grid-cols-2 gap-4">
           {accessoryItems.map(([title, image, href]) => (
             <Link key={title} href={href} className="group relative aspect-square overflow-hidden">
-              <img
+              <Image
                 src={image}
                 alt={title}
-                className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                fill
+                sizes="50vw"
+                className="object-cover transition duration-700 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-black/25" />
               <h3 className="absolute bottom-5 right-5 text-xl text-white">{title}</h3>
