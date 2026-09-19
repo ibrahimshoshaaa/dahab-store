@@ -9,17 +9,31 @@ export type ApiProduct = Product & {
 
 // ---------- public: products ----------
 
+let clientProductsCache: { expiresAt: number; promise: Promise<ApiProduct[]> } | null = null
+
 export async function fetchProducts(): Promise<ApiProduct[]> {
-  try {
-    const res = await fetch(`${API_URL}/api/products`, { next: { revalidate: 60, tags: ["products"] } })
-    const data = await res.json()
-
-    if (!data.success) throw new Error(data.message)
-
-    return data.products
-  } catch {
-    return []
+  if (typeof window !== "undefined" && clientProductsCache && clientProductsCache.expiresAt > Date.now()) {
+    return clientProductsCache.promise
   }
+
+  const request = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/products`, { next: { revalidate: 60, tags: ["products"] } })
+      const data = await res.json()
+
+      if (!data.success) throw new Error(data.message)
+
+      return data.products as ApiProduct[]
+    } catch {
+      return []
+    }
+  })()
+
+  if (typeof window !== "undefined") {
+    clientProductsCache = { expiresAt: Date.now() + 60_000, promise: request }
+  }
+
+  return request
 }
 
 export async function fetchProductBySlug(
@@ -268,15 +282,29 @@ export async function fetchAnalytics(days:number){const data=await adminFetch(`/
 
 export type SiteSettings = Record<string, string>
 
+let clientSettingsCache: { expiresAt: number; promise: Promise<SiteSettings> } | null = null
+
 export async function fetchSettings(): Promise<SiteSettings> {
-  try {
-    const res = await fetch(`${API_URL}/api/settings`, { next: { revalidate: 60, tags: ["settings"] } })
-    const data = await res.json()
-    if (!data.success) throw new Error(data.message)
-    return data.settings as SiteSettings
-  } catch {
-    return {}
+  if (typeof window !== "undefined" && clientSettingsCache && clientSettingsCache.expiresAt > Date.now()) {
+    return clientSettingsCache.promise
   }
+
+  const request = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/settings`, { next: { revalidate: 60, tags: ["settings"] } })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message)
+      return data.settings as SiteSettings
+    } catch {
+      return {}
+    }
+  })()
+
+  if (typeof window !== "undefined") {
+    clientSettingsCache = { expiresAt: Date.now() + 60_000, promise: request }
+  }
+
+  return request
 }
 
 export async function updateSettings(payload: SiteSettings) {

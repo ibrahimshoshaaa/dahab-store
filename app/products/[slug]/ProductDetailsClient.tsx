@@ -52,6 +52,8 @@ export default function ProductDetailsClient({
 
   useEffect(() => {
     let active = true
+    let idleId: number | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     async function loadProduct() {
       // The product is rendered by the server for SEO and fast first paint.
@@ -67,32 +69,48 @@ export default function ProductDetailsClient({
       setLoading(false)
 
       if (result) {
-        fetchProductReviews(result.id)
-          .then((data) => {
-            if (active) {
-              setReviews(data.reviews)
-              setReviewAverage(data.average)
-            }
-          })
-          .catch(() => {})
+        const loadSecondaryData = () => {
+          if (!active) return
 
-        trackEvent({
-          event_type: "product_view",
-          product_id: result.id,
-          path: `/products/${slug}`,
-        })
+          fetchProductReviews(result.id)
+            .then((data) => {
+              if (active) {
+                setReviews(data.reviews)
+                setReviewAverage(data.average)
+              }
+            })
+            .catch(() => {})
+
+          fetchProducts().then((all) => {
+            if (!active) return
+            setRelatedProducts(all.filter((item) => item.slug !== slug).slice(0, 4))
+          })
+
+          trackEvent({
+            event_type: "product_view",
+            product_id: result.id,
+            path: `/products/${slug}`,
+          })
+        }
+
+        if ("requestIdleCallback" in window) {
+          idleId = window.requestIdleCallback(loadSecondaryData, { timeout: 1200 })
+        } else {
+          timeoutId = globalThis.setTimeout(loadSecondaryData, 300)
+        }
       }
     }
 
     loadProduct()
 
-    fetchProducts().then((all) => {
-      if (!active) return
-      setRelatedProducts(all.filter((item) => item.slug !== slug).slice(0, 4))
-    })
-
     return () => {
       active = false
+      if (idleId !== undefined && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== undefined) {
+        globalThis.clearTimeout(timeoutId)
+      }
     }
   }, [slug, initialProduct])
 
