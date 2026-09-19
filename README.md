@@ -42,17 +42,12 @@ npm run db:migrate
 
 ## لوحة الأدمن
 
-`http://localhost:3000/admin/login`
+صفحة الأدمن:
+`/admin/login`
 
-بيانات الدخول الافتراضية (من `backend/.env.example`):
-- Username: `admin`
-- Password: `dahab123`
+بيانات الدخول تُقرأ من متغيرات البيئة `ADMIN_USER` و`ADMIN_PASS`، والجلسات محفوظة في Turso باستخدام Cookie محمية ومدة صلاحية قابلة للضبط عبر `ADMIN_TOKEN_TTL_SECONDS`.
 
-⚠️ ده auth بسيط جدًا لأغراض العرض (token في الذاكرة، بيتصفر لما تعيد تشغيل السيرفر). قبل ما تنزل المتجر لأي بيئة حقيقية، لازم auth أقوى (hashed password, persisted sessions/JWT).
-
-من اللوحة تقدر:
-- تشوف كل الطلبات، تفلترها بالحالة، وتحدّث حالة كل طلب.
-- تضيف/تعدّل/تحذف منتجات، وتتحكم في ظهورها بالمتجر (active/hidden).
+من اللوحة يمكن إدارة الطلبات والمنتجات والمخزون والعملاء والتقارير والكوبونات والرسائل والإعدادات ورفع الصور إلى Cloudinary.
 
 ## تتبع الطلب
 
@@ -91,6 +86,3 @@ Required variables:
 - `CLOUDINARY_API_SECRET`
 
 `ADMIN_TOKEN_TTL_SECONDS` is optional and defaults to 8 hours.
-
-
-<!-- CI refresh -->
