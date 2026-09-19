@@ -3,7 +3,7 @@ import "./globals.css"
 import { CartProvider } from "./context/CartContext"
 import { FavoritesProvider } from "./context/FavoritesContext"
 import PwaRegister from "./components/PwaRegister"
-import { API_URL } from "./lib/api"
+import { db, ensureDb } from "./lib/server/db"
 export const dynamic = "force-dynamic"
 import {
   resolveTheme,
@@ -18,12 +18,11 @@ import {
 // صفحات ثابتة/سريعة، وفي نفس الوقت أي تغيير من لوحة الأدمن يظهر خلال دقيقة.
 async function fetchThemeSettings(): Promise<Record<string, string>> {
   try {
-    const res = await fetch(`${API_URL}/api/settings`, {
-      next: { revalidate: 60 },
-    })
-    const data = await res.json()
-    if (!data.success) return {}
-    return data.settings as Record<string, string>
+    await ensureDb()
+    const result = await db.execute("SELECT key,value FROM settings")
+    return Object.fromEntries(
+      (result.rows as Array<{ key: string; value: string }>).map((row) => [row.key, row.value])
+    )
   } catch {
     return {}
   }
