@@ -104,6 +104,27 @@ export async function initDb() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tracking_code
     ON orders(tracking_code);
 
+    CREATE INDEX IF NOT EXISTS idx_products_active_id
+    ON products(active, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_reviews_product_status_id
+    ON product_reviews(product_id, status, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_reviews_status_id
+    ON product_reviews(status, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_created_event
+    ON analytics_events(created_at, event_type);
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_product_created
+    ON analytics_events(product_id, created_at);
+
+    CREATE INDEX IF NOT EXISTS idx_order_items_order_id
+    ON order_items(order_id);
+
+    CREATE INDEX IF NOT EXISTS idx_orders_phone_id
+    ON orders(phone, id DESC);
+
     CREATE TABLE IF NOT EXISTS product_reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id INTEGER NOT NULL,
