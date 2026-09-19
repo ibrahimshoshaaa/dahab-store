@@ -308,9 +308,9 @@ const body =
       const rawOffset = Number(url.searchParams.get("tzOffsetMinutes") || 0)
       const tzOffset = Number.isFinite(rawOffset) ? Math.max(-840, Math.min(840, Math.trunc(rawOffset))) : 0
       const modifier = `${tzOffset <= 0 ? "+" : "-"}${Math.abs(tzOffset)} minutes`
-      const localDate = `date(created_at, '${D}modifier}')`
-      const today = `date('now', '${D}modifier}')`
-      const weekStart = `date('now', '${D}modifier}', '-6 days')`
+      const localDate = `date(created_at, '${modifier}')`
+      const today = `date('now', '${modifier}')`
+      const weekStart = `date('now', '${modifier}', '-6 days')`
 
       const [aggregateResult, statusResult, daysResult, topProductsResult, recentResult] = await Promise.all([
         db.execute({
@@ -333,7 +333,7 @@ const body =
       const recentIds = recentRows.map((row) => Number(row.id))
       let itemRows: any[] = []
       if (recentIds.length) {
-        const itemsResult = await db.execute(`SELECT id,order_id,product_id,product_name,price,quantity,selected_color,selected_size FROM order_items WHERE order_id IN (${D}recentIds.map(() => "?").join(",")}) ORDER BY id ASC`, recentIds)
+        const itemsResult = await db.execute(`SELECT id,order_id,product_id,product_name,price,quantity,selected_color,selected_size FROM order_items WHERE order_id IN (${recentIds.map(() => "?").join(",")}) ORDER BY id ASC`, recentIds)
         itemRows = itemsResult.rows as any[]
       }
       const itemsByOrder = new Map<number, any[]>()
