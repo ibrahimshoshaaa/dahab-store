@@ -147,7 +147,7 @@ export async function createOrder(payload: OrderPayload) {
   const res = await fetch(`${API_URL}/api/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, idempotency_key: key }),
   })
 
   const data = await res.json()
