@@ -11,7 +11,7 @@ test("accepts valid Egyptian local and international mobile numbers", () => {
 
 test("rejects invalid Egyptian mobile numbers", () => {
   assert.equal(normalizeEgyptianPhone("201012345678"), null)
-  assert.equal(normalizeEgyptianPhone("+201112345678"), null)
+  assert.equal(normalizeEgyptianPhone("+201912345678"), null)
   assert.equal(normalizeEgyptianPhone("0101234567"), null)
 })
 
