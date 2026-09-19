@@ -86,14 +86,14 @@ const body =
   // ---------- public products ----------
   if (p.length === 1 && p[0] === "products" && method === "GET") {
     try {
-      const result = await db.execute("SELECT * FROM products WHERE active = 1 ORDER BY id DESC")
+      const result = await db.execute("SELECT id,slug,name,category,price,old_price,image,images,badge,colors,sizes,description,featured,best_seller,active,size_chart,material_details,care_instructions,stock,low_stock_threshold,variant_stock FROM products WHERE active = 1 ORDER BY id DESC")
       return json({ success: true, products: result.rows.map((r: any) => parseProduct(r)) })
     } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب المنتجات" }, 500) }
   }
 
   if (p.length === 2 && p[0] === "products" && method === "GET") {
     try {
-      const result = await db.execute({ sql: "SELECT * FROM products WHERE slug = ? AND active = 1", args: [p[1]] })
+      const result = await db.execute({ sql: "SELECT id,slug,name,category,price,old_price,image,images,badge,colors,sizes,description,featured,best_seller,active,size_chart,material_details,care_instructions,stock,low_stock_threshold,variant_stock FROM products WHERE slug = ? AND active = 1 LIMIT 1", args: [p[1]] })
       if (!result.rows[0]) return json({ success: false, message: "المنتج غير موجود" }, 404)
       return json({ success: true, product: parseProduct(result.rows[0] as any) })
     } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ في جلب المنتج" }, 500) }
@@ -186,7 +186,7 @@ const body =
 
   // ---------- analytics ----------
   if (p.join("/") === "analytics/events" && method === "POST") {
-    try { const events=Array.isArray((body as any)?.events)?(body as any).events:[body]; const allowed=new Set(["page_view","product_view","add_to_cart","begin_checkout","purchase"]); for(const event of events.slice(0,20)){const type=String(event?.event_type||"");if(!allowed.has(type))continue;const productId=event?.product_id?Number(event.product_id):null;await db.execute({sql:"INSERT INTO analytics_events(event_type,product_id,path,session_id,metadata) VALUES(?,?,?,?,?)",args:[type,Number.isInteger(productId)?productId:null,String(event?.path||"").slice(0,300),String(event?.session_id||"").slice(0,120),JSON.stringify(event?.metadata||{})]})} return json({success:true}) } catch(error){console.error(error);return json({success:false,message:"تعذر تسجيل الإحصائية"},500)}
+    try { const events=Array.isArray((body as any)?.events)?(body as any).events:[body]; const allowed=new Set(["page_view","product_view","add_to_cart","begin_checkout","purchase"]); const statements=events.slice(0,20).flatMap((event:any)=>{const type=String(event?.event_type||"");if(!allowed.has(type))return [];const productId=event?.product_id?Number(event.product_id):null;return [{sql:"INSERT INTO analytics_events(event_type,product_id,path,session_id,metadata) VALUES(?,?,?,?,?)",args:[type,Number.isInteger(productId)?productId:null,String(event?.path||"").slice(0,300),String(event?.session_id||"").slice(0,120),JSON.stringify(event?.metadata||{})]}]});if(statements.length)await db.batch(statements,"write") return json({success:true}) } catch(error){console.error(error);return json({success:false,message:"تعذر تسجيل الإحصائية"},500)}
   }
   if (p.join("/") === "admin/analytics" && method === "GET") {
     const denied=await adminGuard(request);if(denied)return denied
@@ -256,7 +256,7 @@ const body =
   }
 
   // ---------- orders ----------
-  if (p.join("/") === "orders" && method === "GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT * FROM orders ORDER BY id DESC");const orders=await Promise.all((result.rows as any[]).map(async order=>{const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return {...order,items:items.rows}}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)} }
+  if (p.join("/") === "orders" && method === "GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT * FROM orders ORDER BY id DESC");const orderRows=result.rows as any[];const ids=orderRows.map(order=>Number(order.id));let itemRows:any[]=[];if(ids.length){const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids);itemRows=itemsResult.rows as any[]}const itemsByOrder=new Map<number,any[]>();for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب الطلبات"},500)} }
 
   if (p.join("/") === "orders" && method === "POST") {
     let tx:any=null
@@ -287,7 +287,7 @@ const body =
 
   // ---------- customers ----------
   if (p.join("/")==="admin/customers"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const result=await db.execute("SELECT * FROM orders ORDER BY id DESC");const map=new Map<string,any>();for(const order of result.rows as any[]){const phone=String(order.phone||"").trim();if(!phone)continue;const existing=map.get(phone);if(!existing)map.set(phone,{customer_name:order.customer_name,phone,governorate:order.governorate,area:order.area,address:order.address,orders_count:1,total_spent:order.status==="ملغي"?0:Number(order.total||0),last_order_at:order.created_at,first_order_at:order.created_at});else{existing.orders_count+=1;if(order.status!=="ملغي")existing.total_spent+=Number(order.total||0);if(new Date(order.created_at).getTime()<new Date(existing.first_order_at).getTime())existing.first_order_at=order.created_at}}const customers=Array.from(map.values()).sort((a,b)=>new Date(b.last_order_at).getTime()-new Date(a.last_order_at).getTime());return json({success:true,customers})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب العملاء"},500)} }
-  if (p.length===4&&p[0]==="admin"&&p[1]==="customers"&&p[3]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const phone=String(p[2]||"").trim();if(!phone)return json({success:false,message:"رقم الهاتف غير صحيح"},400);const result=await db.execute({sql:"SELECT * FROM orders WHERE phone=? ORDER BY id DESC",args:[phone]});const orders=await Promise.all((result.rows as any[]).map(async order=>{const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[order.id]});return {...order,items:items.rows}}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب طلبات العميل"},500)} }
+  if (p.length===4&&p[0]==="admin"&&p[1]==="customers"&&p[3]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied;try{const phone=String(p[2]||"").trim();if(!phone)return json({success:false,message:"رقم الهاتف غير صحيح"},400);const result=await db.execute({sql:"SELECT * FROM orders WHERE phone=? ORDER BY id DESC",args:[phone]});const orderRows=result.rows as any[];const ids=orderRows.map(order=>Number(order.id));let itemRows:any[]=[];if(ids.length){const itemsResult=await db.execute(`SELECT * FROM order_items WHERE order_id IN (${ids.map(()=>"?").join(",")}) ORDER BY id ASC`,ids);itemRows=itemsResult.rows as any[]}const itemsByOrder=new Map<number,any[]>();for(const item of itemRows){const key=Number(item.order_id);const list=itemsByOrder.get(key)||[];list.push(item);itemsByOrder.set(key,list)}const orders=orderRows.map(order=>({...order,items:itemsByOrder.get(Number(order.id))||[]}));return json({success:true,orders})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ في جلب طلبات العميل"},500)} }
 
   // ---------- contact ----------
   if (p.join("/")==="contact"&&method==="POST") { try{const b:any=body;if(!b?.name||!b?.phone||!b?.message)return json({success:false,message:"من فضلك أكملي كل الحقول"},400);const r=await db.execute({sql:"INSERT INTO contact_messages(name,phone,message) VALUES(?,?,?)",args:[b.name,b.phone,b.message]});return json({success:true,id:Number(r.lastInsertRowid)})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء إرسال الرسالة"},500)} }
