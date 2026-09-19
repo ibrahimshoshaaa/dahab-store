@@ -109,3 +109,19 @@ img {
     transform: none;
   }
 }
+
+
+@keyframes dahabShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.dahab-shimmer {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 7%, white), color-mix(in srgb, var(--brand) 20%, white), color-mix(in srgb, var(--brand) 7%, white));
+  background-size: 200% 100%;
+  animation: dahabShimmer 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dahab-shimmer { animation: none; }
+}
