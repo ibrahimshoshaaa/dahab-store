@@ -18,12 +18,18 @@ function isIos() {
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 }
 
+const INSTALL_STATE_KEY = "dahab-pwa-installed"
+const INSTALL_DISMISSED_KEY = "dahab-pwa-install-dismissed"
+
 export default function PwaRegister() {
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null)
   const [show, setShow] = useState(false)
   const [ios, setIos] = useState(false)
 
   useEffect(() => {
+    // لو التطبيق مثبت بالفعل، لا نظهر دعوة التثبيت مرة أخرى.
+    if (isStandalone() || localStorage.getItem(INSTALL_STATE_KEY) === "1") return
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {})
     }
@@ -34,6 +40,9 @@ export default function PwaRegister() {
     setIos(iosDevice)
 
     const handler = (event: Event) => {
+      // بعض المتصفحات قد ترسل الحدث أثناء انتقال الصفحة؛ نتجاهله لو أصبح التطبيق Standalone.
+      if (isStandalone() || localStorage.getItem(INSTALL_STATE_KEY) === "1") return
+
       const installEvent = event as InstallPromptEvent
       event.preventDefault()
       setPrompt(installEvent)
@@ -43,13 +52,15 @@ export default function PwaRegister() {
     window.addEventListener("beforeinstallprompt", handler)
 
     const installedHandler = () => {
+      localStorage.setItem(INSTALL_STATE_KEY, "1")
       setPrompt(null)
       setShow(false)
     }
 
     window.addEventListener("appinstalled", installedHandler)
 
-    if (iosDevice && sessionStorage.getItem("dahab-pwa-install-dismissed") !== "1") {
+    if (iosDevice && localStorage.getItem(INSTALL_STATE_KEY) !== "1" &&
+      sessionStorage.getItem(INSTALL_DISMISSED_KEY) !== "1") {
       setShow(true)
     }
 
@@ -71,7 +82,7 @@ export default function PwaRegister() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold">ثبّتي Dahab على الآيفون</p>
-              <button onClick={() => { sessionStorage.setItem("dahab-pwa-install-dismissed", "1"); setShow(false) }} aria-label="إغلاق"><X size={18} /></button>
+              <button onClick={() => { sessionStorage.setItem(INSTALL_DISMISSED_KEY, "1"); setShow(false) }} aria-label="إغلاق"><X size={18} /></button>
             </div>
             <p className="mt-1 text-xs leading-5 text-gray-500">
               من Safari اضغطي مشاركة ثم «إضافة إلى الشاشة الرئيسية» لفتح المتجر كتطبيق.
