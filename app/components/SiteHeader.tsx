@@ -30,9 +30,29 @@ export default function SiteHeader() {
   const { favoritesCount, mounted: favoritesMounted } = useFavorites()
 
   useEffect(() => {
-    trackEvent({event_type:"page_view",path:pathname})
-    fetchSettings().then((data) => { if (data.announcement_bar) setAnnouncement(data.announcement_bar) })
-  }, [])
+    let cancelled = false
+    const run = () => {
+      if (cancelled) return
+      trackEvent({ event_type: "page_view", path: pathname })
+      fetchSettings().then((data) => {
+        if (!cancelled && data.announcement_bar) setAnnouncement(data.announcement_bar)
+      })
+    }
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(run, { timeout: 800 })
+      return () => {
+        cancelled = true
+        window.cancelIdleCallback(idleId)
+      }
+    }
+
+    const timeoutId = window.setTimeout(run, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [pathname])
 
   useEffect(() => {
     if (!searchOpen) return
