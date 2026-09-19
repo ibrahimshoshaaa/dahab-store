@@ -16,7 +16,7 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "rtl",
     categories: ["shopping", "lifestyle"],
     icons: [
-      { src: "/logo.png", sizes: "any", type: "image/png", purpose: "any maskable" },
+      { src: "/logo.png", sizes: "any", type: "image/png", purpose: "any" },
     ],
   }
 }
