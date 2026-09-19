@@ -321,10 +321,18 @@ const body =
       }
       const whereSql=where.length ? " WHERE "+where.join(" AND ") : ""
       const orderSql=sort==="oldest"?"o.id ASC":sort==="highest"?"o.total DESC, o.id DESC":sort==="lowest"?"o.total ASC, o.id DESC":"o.id DESC"
+      const summaryWhere:string[]=[]
+      const summaryArgs:any[]=[]
+      if(q){
+        summaryWhere.push("(o.customer_name LIKE ? OR o.phone LIKE ? OR CAST(o.id AS TEXT) LIKE ? OR COALESCE(o.tracking_code,'') LIKE ? OR o.governorate LIKE ? OR o.area LIKE ? OR o.address LIKE ? OR EXISTS (SELECT 1 FROM order_items qi WHERE qi.order_id=o.id AND (qi.product_name LIKE ? OR COALESCE(qi.selected_color,'') LIKE ? OR COALESCE(qi.selected_size,'') LIKE ?)))")
+        const summaryTerm=`%${q}%`
+        summaryArgs.push(summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm,summaryTerm)
+      }
+      const summaryWhereSql=summaryWhere.length ? " WHERE "+summaryWhere.join(" AND ") : ""
       const [countResult,rowsResult,summaryResult]=await Promise.all([
         db.execute({sql:"SELECT COUNT(*) AS count FROM orders o"+whereSql,args}),
         db.execute({sql:"SELECT id,customer_name,phone,governorate,area,address,notes,total,status,tracking_code,created_at FROM orders o"+whereSql+" ORDER BY "+orderSql+" LIMIT ? OFFSET ?",args:[...args,limit,offset]}),
-        db.execute({sql:"SELECT status,COUNT(*) AS count,COALESCE(SUM(CASE WHEN status!='ملغي' THEN total ELSE 0 END),0) AS revenue FROM orders o"+whereSql+" GROUP BY status",args}),
+        db.execute({sql:"SELECT status,COUNT(*) AS count,COALESCE(SUM(CASE WHEN status!='ملغي' THEN total ELSE 0 END),0) AS revenue FROM orders o"+summaryWhereSql+" GROUP BY status",args:summaryArgs}),
       ])
       const orderRows=rowsResult.rows as any[]
       const ids=orderRows.map(order=>Number(order.id))
