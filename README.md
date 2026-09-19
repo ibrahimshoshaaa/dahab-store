@@ -76,7 +76,7 @@ npm run db:migrate
 
 ## Production deployment checklist
 
-Before deploying to Vercel, configure all required environment variables. In particular,
+Before deploying to Vercel, run `npm run db:migrate` against the target Turso database, then configure all required environment variables. In particular,
 `ADMIN_TOKEN_SECRET` must be a cryptographically random value of at least 32 characters;
 there are intentionally no production fallback admin credentials in the server code.
 
