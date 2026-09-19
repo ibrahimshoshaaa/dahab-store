@@ -48,7 +48,6 @@ function s(settings: SiteSettings, key: string): string {
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(mockProducts)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
-  const [isLoaded, setIsLoaded] = useState(false)
   const [activeHero, setActiveHero] = useState(0)
   const { toggleFavorite, isFavorite } = useFavorites()
 
@@ -58,7 +57,7 @@ export default function Home() {
       fetchSettings().then((data) => {
         if (Object.keys(data).length > 0) setSettings(data)
       }),
-    ]).finally(() => setIsLoaded(true))
+    ])
   }, [])
 
   const accessoryItems = [
@@ -85,13 +84,6 @@ export default function Home() {
     return () => window.clearInterval(timer)
   }, [heroImages.length, settings.hero_interval_seconds])
 
-  if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--brand)] border-t-transparent" />
-      </div>
-    )
-  }
 
   return (
     <main dir="rtl" className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
