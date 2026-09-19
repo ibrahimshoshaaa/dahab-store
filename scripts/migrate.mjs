@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   path TEXT, session_id TEXT, metadata TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tracking_code ON orders(tracking_code);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idempotency_key ON orders(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_products_active_id ON products(active, id DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_phone_id ON orders(phone, id DESC);
@@ -92,6 +91,8 @@ await addColumns("orders", [
   ["coupon_code", "ALTER TABLE orders ADD COLUMN coupon_code TEXT"],
   ["discount", "ALTER TABLE orders ADD COLUMN discount REAL NOT NULL DEFAULT 0"],
 ])
+await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idempotency_key ON orders(idempotency_key) WHERE idempotency_key IS NOT NULL")
+
 await addColumns("coupons", [
   ["starts_at", "ALTER TABLE coupons ADD COLUMN starts_at TEXT"],
   ["max_discount", "ALTER TABLE coupons ADD COLUMN max_discount REAL"],
