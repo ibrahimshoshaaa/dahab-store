@@ -50,6 +50,8 @@ function ProductsContent() {
     }
   }, [])
 
+  const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ar")), [products])
+
   const filteredProducts = useMemo(() => {
     let result = products.filter((product) => {
       const matchesSearch = product.name
@@ -134,8 +136,9 @@ function ProductsContent() {
               className="w-full bg-transparent py-3 outline-none"
             >
               <option value="الكل">كل الأقسام</option>
-              <option value="عبايات">العبايات</option>
-              <option value="إكسسوارات">الإكسسوارات</option>
+              {categories.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
             </select>
           </div>
 
