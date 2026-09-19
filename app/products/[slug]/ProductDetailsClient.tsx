@@ -102,6 +102,10 @@ export default function ProductDetailsClient({
   const hasVariantStock = !!product?.variantStock && Object.keys(product.variantStock).length > 0
   const availableStock = product ? (hasVariantStock ? Number(product.variantStock?.[variantKey] ?? 0) : Number(product.stock ?? 0)) : 0
 
+  useEffect(() => {
+    setQuantity((current) => Math.max(1, Math.min(current, availableStock || 1)))
+  }, [availableStock])
+
   const galleryTouchStartX = useRef<number | null>(null)
 
   function handleGalleryTouchStart(e: React.TouchEvent) {
