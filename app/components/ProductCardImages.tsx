@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
+import Image from "next/image"
 
 /**
  * صور المنتج داخل الكارت (الصفحة الرئيسية / صفحة المنتجات).
@@ -65,7 +66,7 @@ export default function ProductCardImages({
   }
 
   if (safeImages.length <= 1) {
-    return <img src={safeImages[0]} alt={alt} className={imgClassName} />
+    return <Image src={safeImages[0]} alt={alt} fill sizes="(max-width: 768px) 50vw, 25vw" className={imgClassName} />
   }
 
   return (
@@ -76,7 +77,7 @@ export default function ProductCardImages({
       onTouchEnd={handleTouchEnd}
       onClickCapture={handleClickCapture}
     >
-      <img src={safeImages[index]} alt={alt} className={imgClassName} draggable={false} />
+      <Image src={safeImages[index]} alt={alt} fill sizes="(max-width: 768px) 50vw, 25vw" className={imgClassName} draggable={false} />
 
       <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
         {safeImages.map((_, i) => (
