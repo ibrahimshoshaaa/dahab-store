@@ -20,8 +20,9 @@ async function fetchThemeSettings(): Promise<Record<string, string>> {
   try {
     await ensureDb()
     const result = await db.execute("SELECT key,value FROM settings")
+    const rows = result.rows as unknown as Array<{ key: unknown; value: unknown }>
     return Object.fromEntries(
-      (result.rows as Array<{ key: string; value: string }>).map((row) => [row.key, row.value])
+      rows.map((row) => [String(row.key), String(row.value)])
     )
   } catch {
     return {}

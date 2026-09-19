@@ -29,6 +29,8 @@ export function verifyAdminCredentials(username: unknown, password: unknown) {
 
 export async function createAdminToken() {
   if (!configured()) throw new Error("Admin authentication is not configured")
+  await db.execute("DELETE FROM admin_sessions WHERE expires_at <= CURRENT_TIMESTAMP")
+  await db.execute("DELETE FROM rate_limits WHERE window_start < strftime('%s','now') - 86400")
   const now = Math.floor(Date.now() / 1000)
   const payload: Payload = { sub: ADMIN_USER, jti: crypto.randomUUID(), iat: now, exp: now + TTL_SECONDS }
   await db.execute({ sql: "INSERT INTO admin_sessions(jti, expires_at) VALUES (?, datetime(?, 'unixepoch'))", args: [payload.jti, payload.exp] })
@@ -62,7 +64,18 @@ export function getBearerToken(request: Request) {
   const h = request.headers.get("authorization") || ""
   return h.startsWith("Bearer ") ? h.slice(7) : null
 }
-export async function requireAdmin(request: Request) { return isValidAdminToken(getBearerToken(request)) }
+
+export function getAdminTokenFromRequest(request: Request) {
+  const bearer = getBearerToken(request)
+  if (bearer) return bearer
+  const cookie = request.headers.get("cookie") || ""
+  const match = cookie.match(/(?:^|;\s*)dahab_admin_token=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+export async function requireAdmin(request: Request) {
+  return isValidAdminToken(getAdminTokenFromRequest(request))
+}
 export async function revokeAdminToken(token: string | null | undefined) {
   const p = parseAdminToken(token)
   if (!p) return false

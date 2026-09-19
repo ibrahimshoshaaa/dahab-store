@@ -1,4 +1,3 @@
-// @ts-nocheck
 import crypto from "node:crypto"
 import { createClient } from "@libsql/client"
 
@@ -181,10 +180,6 @@ export async function initDb() {
     ["free_shipping", "ALTER TABLE coupons ADD COLUMN free_shipping INTEGER NOT NULL DEFAULT 0"],
   ]
   for (const [column, sql] of couponMigrations) if (!couponColumns.has(column)) await db.execute(sql)
-
-  // prune serverless coordination state
-  await db.execute("DELETE FROM admin_sessions WHERE expires_at <= CURRENT_TIMESTAMP")
-  await db.execute("DELETE FROM rate_limits WHERE window_start < strftime('%s','now') - 86400")
 
   // seed products
   const productCount = await db.execute("SELECT COUNT(*) AS count FROM products")

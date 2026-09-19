@@ -18,9 +18,8 @@ export async function fetchProducts(): Promise<ApiProduct[]> {
 
     return data.products
   } catch {
-    // Backend not reachable yet — fall back to local mock data so the
-    // storefront stays demoable even without the Express server running.
-    return mockProducts
+    if (process.env.NODE_ENV !== "production") return mockProducts
+    return []
   }
 }
 
@@ -37,7 +36,10 @@ export async function fetchProductBySlug(
 
     return data.product
   } catch {
-    return mockProducts.find((product) => product.slug === slug)
+    if (process.env.NODE_ENV !== "production") {
+      return mockProducts.find((product) => product.slug === slug)
+    }
+    return undefined
   }
 }
 
@@ -130,30 +132,22 @@ export async function fetchOrderByCode(code: string) {
 
 // ---------- admin ----------
 
-const TOKEN_KEY = "dahab-admin-token"
-
+// The real admin token is HttpOnly; this marker is non-sensitive and only keeps legacy client route guards working.
 export function getAdminToken() {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem(TOKEN_KEY)
+  if (typeof document === "undefined") return null
+  return document.cookie.split(";").some((part) => part.trim() === "dahab_admin_session=1") ? "session-marker" : null
 }
 
-export function setAdminToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token)
-}
-
-export function clearAdminToken() {
-  localStorage.removeItem(TOKEN_KEY)
-}
+export function setAdminToken(_token: string) {}
+export function clearAdminToken() {}
 
 async function adminFetch(path: string, options: RequestInit = {}) {
-  const token = getAdminToken()
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     cache: "no-store",
   })
@@ -180,13 +174,11 @@ export async function adminLogin(username: string, password: string) {
     throw new Error(data.message || "بيانات الدخول غير صحيحة")
   }
 
-  setAdminToken(data.token)
-  return data.token as string
+  return true
 }
 
 export function adminLogout() {
   adminFetch("/api/admin/logout", { method: "POST" }).catch(() => {})
-  clearAdminToken()
 }
 
 export async function fetchAdminOrders() {
@@ -304,10 +296,8 @@ export async function uploadImage(file: File): Promise<string> {
   const formData = new FormData()
   formData.append("image", file)
 
-  const token = getAdminToken()
   const res = await fetch(`${API_URL}/api/admin/upload`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
 

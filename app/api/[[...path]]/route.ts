@@ -1,8 +1,7 @@
-// @ts-nocheck
 import crypto from "node:crypto"
 import { v2 as cloudinary } from "cloudinary"
 import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
-import { createAdminToken, getBearerToken, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
+import { createAdminToken, getAdminTokenFromRequest, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
 import { clientIp, rateLimit } from "@/app/lib/server/rate-limit"
 import { couponDiscount, json, parseProduct, readJson, safeJsonParse, slugify } from "@/app/lib/server/utils"
 
@@ -25,6 +24,20 @@ async function adminGuard(request: Request) {
 function numberParam(value: string | undefined) {
   const n = Number(value)
   return Number.isInteger(n) && n > 0 ? n : null
+}
+
+function normalizeVariantStock(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  const result: Record<string, number> = {}
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const n = Number(raw)
+    if (Number.isFinite(n)) result[String(key)] = Math.max(0, Math.floor(n))
+  }
+  return result
+}
+
+function totalVariantStock(value: Record<string, number>) {
+  return Object.values(value).reduce((sum, n) => sum + n, 0)
 }
 
 async function handle(request: Request, method: string, path: string[]) {
@@ -52,12 +65,21 @@ const body =
     const rl=await rateLimit(`login:${clientIp(request)}`,8,600); if(!rl.ok) return json({success:false,message:"محاولات كثيرة، حاول لاحقًا"},429)
     const b: any = body
     if (!verifyAdminCredentials(b.username, b.password)) return json({ success: false, message: "بيانات الدخول غير صحيحة" }, 401)
-    return json({ success: true, token: await createAdminToken() })
+    const token = await createAdminToken()
+    const response = json({ success: true })
+    const maxAge = Math.max(300, Number(process.env.ADMIN_TOKEN_TTL_SECONDS || 28800))
+    response.headers.append("Set-Cookie", `dahab_admin_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`)
+    response.headers.append("Set-Cookie", `dahab_admin_session=1; Path=/; Secure; SameSite=Lax; Max-Age=${maxAge}`)
+    return response
   }
 
   if (p.join("/") === "admin/logout" && method === "POST") {
     const denied = await adminGuard(request); if (denied) return denied
-    await revokeAdminToken(getBearerToken(request)); return json({ success: true })
+    await revokeAdminToken(getAdminTokenFromRequest(request))
+    const response = json({ success: true })
+    response.headers.append("Set-Cookie", "dahab_admin_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0")
+    response.headers.append("Set-Cookie", "dahab_admin_session=; Path=/; Secure; SameSite=Lax; Max-Age=0")
+    return response
   }
 
   // ---------- public products ----------
@@ -88,6 +110,7 @@ const body =
     try {
       const b: any = body
       const { name, category, price, oldPrice, image, images, badge, colors, sizes, description, featured, bestSeller, active, sizeChart, materialDetails, careInstructions, stock, lowStockThreshold, variantStock } = b
+      const normalizedVariants = normalizeVariantStock(variantStock)
       const imageList = Array.isArray(images) ? images.filter(Boolean) : []
       const mainImage = image || imageList[0]
       if (!name || !category || price === undefined || !mainImage) return json({ success: false, message: "بيانات المنتج غير مكتملة" }, 400)
@@ -96,7 +119,7 @@ const body =
       if (exists.rows[0]) slug = `${slug}-${Date.now()}`
       const result = await db.execute({
         sql: `INSERT INTO products (slug,name,category,price,old_price,image,images,badge,colors,sizes,description,featured,best_seller,active,size_chart,material_details,care_instructions,stock,low_stock_threshold,variant_stock) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        args: [slug, name, category, Number(price), oldPrice ? Number(oldPrice) : null, mainImage, JSON.stringify(imageList.length ? imageList : [mainImage]), badge || null, JSON.stringify(colors || []), JSON.stringify(sizes || []), description || "", featured ? 1 : 0, bestSeller ? 1 : 0, active === false ? 0 : 1, JSON.stringify(sizeChart || {}), materialDetails || "", careInstructions || "", Math.max(0, Number(stock ?? 20)), Math.max(0, Number(lowStockThreshold ?? 5)), JSON.stringify(variantStock && typeof variantStock === "object" ? variantStock : {})]
+        args: [slug, name, category, Number(price), oldPrice ? Number(oldPrice) : null, mainImage, JSON.stringify(imageList.length ? imageList : [mainImage]), badge || null, JSON.stringify(colors || []), JSON.stringify(sizes || []), description || "", featured ? 1 : 0, bestSeller ? 1 : 0, active === false ? 0 : 1, JSON.stringify(sizeChart || {}), materialDetails || "", careInstructions || "", Object.keys(normalizedVariants).length ? totalVariantStock(normalizedVariants) : Math.max(0, Number(stock ?? 20)), Math.max(0, Number(lowStockThreshold ?? 5)), JSON.stringify(normalizedVariants)]
       })
       return json({ success: true, id: Number(result.lastInsertRowid), slug }, 201)
     } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ أثناء إضافة المنتج" }, 500) }
@@ -110,9 +133,10 @@ const body =
       if (!ex.rows[0]) return json({ success: false, message: "المنتج غير موجود" }, 404)
       const e: any = ex.rows[0], b: any = body
       const { name, slug, category, price, oldPrice, image, images, badge, colors, sizes, description, featured, bestSeller, active, sizeChart, materialDetails, careInstructions, stock, lowStockThreshold, variantStock } = b
+      const normalizedVariants = variantStock !== undefined ? normalizeVariantStock(variantStock) : safeJsonParse(e.variant_stock, {})
       const imageList = Array.isArray(images) ? images.filter(Boolean) : undefined
       const mainImage = image ?? imageList?.[0]
-      await db.execute({ sql: `UPDATE products SET slug=?,name=?,category=?,price=?,old_price=?,image=?,images=?,badge=?,colors=?,sizes=?,description=?,featured=?,best_seller=?,active=?,size_chart=?,material_details=?,care_instructions=?,stock=?,low_stock_threshold=?,variant_stock=? WHERE id=?`, args: [slug ?? e.slug, name ?? e.name, category ?? e.category, price !== undefined ? Number(price) : e.price, oldPrice !== undefined ? (oldPrice ? Number(oldPrice) : null) : e.old_price, mainImage ?? e.image, imageList !== undefined ? JSON.stringify(imageList.length ? imageList : [mainImage ?? e.image]) : e.images, badge !== undefined ? badge : e.badge, colors !== undefined ? JSON.stringify(colors) : e.colors, sizes !== undefined ? JSON.stringify(sizes) : e.sizes, description !== undefined ? description : e.description, featured !== undefined ? (featured ? 1 : 0) : e.featured, bestSeller !== undefined ? (bestSeller ? 1 : 0) : e.best_seller, active !== undefined ? (active ? 1 : 0) : e.active, sizeChart !== undefined ? JSON.stringify(sizeChart) : e.size_chart, materialDetails !== undefined ? materialDetails : e.material_details, careInstructions !== undefined ? careInstructions : e.care_instructions, stock !== undefined ? Math.max(0, Number(stock)) : Number(e.stock ?? 0), lowStockThreshold !== undefined ? Math.max(0, Number(lowStockThreshold)) : Number(e.low_stock_threshold ?? 5), variantStock !== undefined ? JSON.stringify(variantStock && typeof variantStock === "object" ? variantStock : {}) : (e.variant_stock || "{}"), id] })
+      await db.execute({ sql: `UPDATE products SET slug=?,name=?,category=?,price=?,old_price=?,image=?,images=?,badge=?,colors=?,sizes=?,description=?,featured=?,best_seller=?,active=?,size_chart=?,material_details=?,care_instructions=?,stock=?,low_stock_threshold=?,variant_stock=? WHERE id=?`, args: [slug ?? e.slug, name ?? e.name, category ?? e.category, price !== undefined ? Number(price) : e.price, oldPrice !== undefined ? (oldPrice ? Number(oldPrice) : null) : e.old_price, mainImage ?? e.image, imageList !== undefined ? JSON.stringify(imageList.length ? imageList : [mainImage ?? e.image]) : e.images, badge !== undefined ? badge : e.badge, colors !== undefined ? JSON.stringify(colors) : e.colors, sizes !== undefined ? JSON.stringify(sizes) : e.sizes, description !== undefined ? description : e.description, featured !== undefined ? (featured ? 1 : 0) : e.featured, bestSeller !== undefined ? (bestSeller ? 1 : 0) : e.best_seller, active !== undefined ? (active ? 1 : 0) : e.active, sizeChart !== undefined ? JSON.stringify(sizeChart) : e.size_chart, materialDetails !== undefined ? materialDetails : e.material_details, careInstructions !== undefined ? careInstructions : e.care_instructions, Object.keys(normalizedVariants).length ? totalVariantStock(normalizedVariants) : (stock !== undefined ? Math.max(0, Number(stock)) : Number(e.stock ?? 0)), lowStockThreshold !== undefined ? Math.max(0, Number(lowStockThreshold)) : Number(e.low_stock_threshold ?? 5), JSON.stringify(normalizedVariants), id] })
       return json({ success: true })
     } catch (error) { console.error(error); return json({ success: false, message: "حدث خطأ أثناء تعديل المنتج" }, 500) }
   }
@@ -120,8 +144,21 @@ const body =
   if (p.length === 4 && p[0] === "admin" && p[1] === "products" && p[3] === "stock" && method === "PATCH") {
     const denied = await adminGuard(request); if (denied) return denied
     const id = numberParam(p[2]); if (!id) return json({ success: false, message: "المنتج غير موجود" }, 404)
-    try { const stock = Number((body as any)?.stock); if (!Number.isInteger(stock) || stock < 0) return json({ success:false,message:"الكمية يجب أن تكون رقمًا صحيحًا غير سالب" },400); const r=await db.execute({sql:"UPDATE products SET stock=? WHERE id=?",args:[stock,id]}); if(!r.rowsAffected)return json({success:false,message:"المنتج غير موجود"},404); return json({success:true,stock}) }
-    catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث المخزون"},500)}
+    try {
+      const stock = Number((body as any)?.stock)
+      if (!Number.isInteger(stock) || stock < 0) return json({success:false,message:"الكمية يجب أن تكون رقمًا صحيحًا غير سالب"},400)
+      const product = await db.execute({sql:"SELECT variant_stock FROM products WHERE id=?",args:[id]})
+      if (!product.rows[0]) return json({success:false,message:"المنتج غير موجود"},404)
+      const variants = normalizeVariantStock(safeJsonParse(product.rows[0].variant_stock, {}))
+      if (Object.keys(variants).length) {
+        return json({success:false,message:"هذا المنتج يستخدم مخزون الألوان والمقاسات؛ حدّث مخزون كل اختيار من جدول المتغيرات"},400)
+      }
+      await db.execute({sql:"UPDATE products SET stock=? WHERE id=?",args:[stock,id]})
+      return json({success:true,stock})
+    } catch(error) {
+      console.error(error)
+      return json({success:false,message:"حدث خطأ أثناء تحديث المخزون"},500)
+    }
   }
 
   if (p.length === 3 && p[0] === "admin" && p[1] === "products" && method === "DELETE") {
@@ -181,7 +218,7 @@ const body =
       )
       if (invalid) return json({ success: false, message: "بيانات السلة غير صحيحة" }, 400)
 
-      const ids = [...new Set(normalized.map((item: any) => item.product_id))]
+      const ids: number[] = Array.from(new Set(normalized.map((item: any) => Number(item.product_id))))
       const result = await db.execute(
         `SELECT id, stock, active, variant_stock FROM products WHERE id IN (${ids.map(() => "?").join(",")})`,
         ids
@@ -235,7 +272,7 @@ const body =
       let trackingCode=generateTrackingCode(); for(let i=0;i<5;i++){const c=await tx.execute({sql:"SELECT 1 FROM orders WHERE tracking_code=?",args:[trackingCode]});if(!c.rows[0])break;trackingCode=generateTrackingCode()}
       const orderResult=await tx.execute({sql:`INSERT INTO orders (customer_name,phone,governorate,area,address,notes,total,status,tracking_code,coupon_code,discount) VALUES (?,?,?,?,?,?,?,'جديد',?,?,?)`,args:[customer_name,phone,governorate,area,address,notes||"",finalTotal,trackingCode,coupon?coupon.code:null,discount]});const orderId=Number(orderResult.lastInsertRowid)
       for(const item of normalized)await tx.execute({sql:"INSERT INTO order_items(order_id,product_id,product_name,price,quantity,selected_color,selected_size) VALUES(?,?,?,?,?,?,?)",args:[orderId,item.product_id,item.product_name,item.price,item.quantity,item.selected_color,item.selected_size]})
-      for(const [id,qty] of quantities){const current=await tx.execute({sql:"SELECT stock,variant_stock FROM products WHERE id=?",args:[id]});const row:any=current.rows[0],vs=safeJsonParse<any>(row.variant_stock,{});if(Object.keys(vs).length){for(const item of normalized.filter(x=>x.product_id===id)){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`;vs[key]=Number(vs[key]||0)-item.quantity;if(vs[key]<0)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}const u=await tx.execute({sql:"UPDATE products SET stock=stock-?,variant_stock=? WHERE id=? AND stock>=?",args:[qty,JSON.stringify(vs),id,qty]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}else{const u=await tx.execute({sql:"UPDATE products SET stock=stock-? WHERE id=? AND stock>=?",args:[qty,id,qty]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}
+      for(const [id,qty] of quantities){const current=await tx.execute({sql:"SELECT stock,variant_stock FROM products WHERE id=?",args:[id]});const row:any=current.rows[0],vs=safeJsonParse<any>(row.variant_stock,{});if(Object.keys(vs).length){for(const item of normalized.filter(x=>x.product_id===id)){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`;vs[key]=Number(vs[key]||0)-item.quantity;if(vs[key]<0)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}const u=await tx.execute({sql:"UPDATE products SET stock=?,variant_stock=? WHERE id=?",args:[totalVariantStock(vs),JSON.stringify(vs),id]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}else{const u=await tx.execute({sql:"UPDATE products SET stock=stock-? WHERE id=? AND stock>=?",args:[qty,id,qty]});if(u.rowsAffected!==1)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}
       if(coupon){const u=await tx.execute({sql:"UPDATE coupons SET used_count=used_count+1 WHERE id=? AND (max_uses=0 OR used_count<max_uses)",args:[coupon.id]});if(u.rowsAffected!==1)throw Object.assign(new Error("COUPON_EXHAUSTED"),{code:"BAD_COUPON"})}
       await tx.execute({sql:"INSERT INTO analytics_events(event_type,path,session_id,metadata) VALUES(?,?,?,?)",args:["purchase","/checkout",null,JSON.stringify({order_id:orderId,total:finalTotal})]})
       await tx.commit(); tx=null
