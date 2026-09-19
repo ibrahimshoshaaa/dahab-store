@@ -55,8 +55,9 @@ export async function fetchProducts(): Promise<ApiProduct[]> {
       if (!data.success) throw new Error(data.message)
 
       return data.products as ApiProduct[]
-    } catch {
-      return []
+    } catch (error) {
+      clientProductsCache = null
+      throw error
     }
   })()
 
