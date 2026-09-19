@@ -67,7 +67,9 @@ const body =
     if (!verifyAdminCredentials(b.username, b.password)) return json({ success: false, message: "بيانات الدخول غير صحيحة" }, 401)
     const token = await createAdminToken()
     const response = json({ success: true })
-    response.headers.set("Set-Cookie", `dahab_admin_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${Math.max(300, Number(process.env.ADMIN_TOKEN_TTL_SECONDS || 28800))}`)
+    const maxAge = Math.max(300, Number(process.env.ADMIN_TOKEN_TTL_SECONDS || 28800))
+    response.headers.append("Set-Cookie", `dahab_admin_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`)
+    response.headers.append("Set-Cookie", `dahab_admin_session=1; Path=/; Secure; SameSite=Lax; Max-Age=${maxAge}`)
     return response
   }
 
@@ -75,7 +77,8 @@ const body =
     const denied = await adminGuard(request); if (denied) return denied
     await revokeAdminToken(getAdminTokenFromRequest(request))
     const response = json({ success: true })
-    response.headers.set("Set-Cookie", "dahab_admin_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0")
+    response.headers.append("Set-Cookie", "dahab_admin_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0")
+    response.headers.append("Set-Cookie", "dahab_admin_session=; Path=/; Secure; SameSite=Lax; Max-Age=0")
     return response
   }
 
