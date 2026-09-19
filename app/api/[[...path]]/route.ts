@@ -141,8 +141,21 @@ const body =
   if (p.length === 4 && p[0] === "admin" && p[1] === "products" && p[3] === "stock" && method === "PATCH") {
     const denied = await adminGuard(request); if (denied) return denied
     const id = numberParam(p[2]); if (!id) return json({ success: false, message: "المنتج غير موجود" }, 404)
-    try { const stock = Number((body as any)?.stock); if (!Number.isInteger(stock) || stock < 0) return json({ success:false,message:"الكمية يجب أن تكون رقمًا صحيحًا غير سالب" },400); const r=await db.execute({sql:"UPDATE products SET stock=? WHERE id=?",args:[stock,id]}); if(!r.rowsAffected)return json({success:false,message:"المنتج غير موجود"},404); return json({success:true,stock}) }
-    catch(error){console.error(error);return json({success:false,message:"حدث خطأ أثناء تحديث المخزون"},500)}
+    try {
+      const stock = Number((body as any)?.stock)
+      if (!Number.isInteger(stock) || stock < 0) return json({success:false,message:"الكمية يجب أن تكون رقمًا صحيحًا غير سالب"},400)
+      const product = await db.execute({sql:"SELECT variant_stock FROM products WHERE id=?",args:[id]})
+      if (!product.rows[0]) return json({success:false,message:"المنتج غير موجود"},404)
+      const variants = normalizeVariantStock(safeJsonParse(product.rows[0].variant_stock, {}))
+      if (Object.keys(variants).length) {
+        return json({success:false,message:"هذا المنتج يستخدم مخزون الألوان والمقاسات؛ حدّث مخزون كل اختيار من جدول المتغيرات"},400)
+      }
+      await db.execute({sql:"UPDATE products SET stock=? WHERE id=?",args:[stock,id]})
+      return json({success:true,stock})
+    } catch(error) {
+      console.error(error)
+      return json({success:false,message:"حدث خطأ أثناء تحديث المخزون"},500)
+    }
   }
 
   if (p.length === 3 && p[0] === "admin" && p[1] === "products" && method === "DELETE") {
