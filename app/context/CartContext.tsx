@@ -109,7 +109,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           (x.selected_color || "") === (item.selectedColor || "") &&
           (x.selected_size || "") === (item.selectedSize || "")
         )
-        return !result || !result.active || Number(result.available) !== item.quantity
+        return !result || !result.active || Number(result.available) < item.quantity
       })
       return !changed
     } catch {
