@@ -4,28 +4,41 @@
 
 ## التشغيل محليًا
 
-### 1) الباك إند (Express + SQLite)
-
 ```bash
-cd backend
-npm install
-cp .env.example .env   # وعدّل ADMIN_USER / ADMIN_PASS لو حابب
-npm run dev            # أو: node server.js
-```
-
-هيشتغل على `http://localhost:4000`. أول تشغيل بينشئ قاعدة بيانات `dahab.db` وبيعمل seed لـ 8 منتجات تلقائيًا.
-
-### 2) الفرونت إند (Next.js)
-
-```bash
-cp .env.example .env.local   # NEXT_PUBLIC_API_URL افتراضيًا http://localhost:4000
-npm install
+npm ci
 npm run dev
 ```
 
-هيشتغل على `http://localhost:3000`.
+الموقع يعمل افتراضيًا على `http://localhost:3000`.
 
-> ملحوظة: لو الباك إند مش شغال، المتجر (الصفحة الرئيسية / المنتجات) بيرجع تلقائيًا لبيانات وهمية محليًا (`app/data/products.ts`) عشان يفضل قابل للعرض، لكن السلة والطلبات محتاجة الباك إند شغال فعليًا.
+## متغيرات البيئة
+
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+- `ADMIN_USER`
+- `ADMIN_PASS`
+- `ADMIN_TOKEN_SECRET` — قيمة عشوائية قوية، ويفضل 32 حرفًا أو أكثر.
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `NEXT_PUBLIC_SITE_URL` — الدومين الأساسي للموقع ويُستخدم في metadata وsitemap.
+
+## قاعدة البيانات
+
+تهيئة الـschema والـmigrations لا تعمل أثناء استقبال الطلبات. بعد تجهيز متغيرات Turso شغّل:
+
+```bash
+npm run db:migrate
+```
+
+في الإنتاج، شغّل migration كخطوة نشر/إدارة منفصلة قبل توجيه الترافيك للنسخة الجديدة.
+
+
+التطبيق يتحقق فقط من جاهزية الـschema أثناء runtime. إذا كانت الجداول المطلوبة ناقصة، سيطلب تشغيل migration بدل تعديل قاعدة البيانات تلقائيًا.
+
+
+لا يتم إدخال منتجات تجريبية تلقائيًا في الإنتاج.
+
 
 ## لوحة الأدمن
 
@@ -46,6 +59,10 @@ npm run dev
 العميل يقدر يتابع طلبه من `http://localhost:3000/track` برقم الطلب اللي بيظهر بعد إتمام الطلب.
 
 ## الحالة الحالية
+
+- قاعدة البيانات: Turso
+- التخزين السحابي للصور: Cloudinary
+- API: Next.js App Router
 
 - ✅ واجهة المتجر بنفس هوية DAHAB: الرئيسية، المنتجات، تفاصيل المنتج، السلة، المفضلة، Checkout، التتبع، التواصل، الشحن والاسترجاع.
 - ✅ بحث سريع من الهيدر + فلترة وترتيب محسّنان للمنتجات + واجهة Mobile-first.
