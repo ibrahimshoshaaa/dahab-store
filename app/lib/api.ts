@@ -11,7 +11,7 @@ export type ApiProduct = Product & {
 
 export async function fetchProducts(): Promise<ApiProduct[]> {
   try {
-    const res = await fetch(`${API_URL}/api/products`, { cache: "no-store" })
+    const res = await fetch(`${API_URL}/api/products`, { next: { revalidate: 60, tags: ["products"] } })
     const data = await res.json()
 
     if (!data.success) throw new Error(data.message)
@@ -28,7 +28,7 @@ export async function fetchProductBySlug(
 ): Promise<ApiProduct | undefined> {
   try {
     const res = await fetch(`${API_URL}/api/products/${slug}`, {
-      cache: "no-store",
+      next: { revalidate: 60, tags: ["products"] },
     })
     const data = await res.json()
 
@@ -274,7 +274,7 @@ export type SiteSettings = Record<string, string>
 
 export async function fetchSettings(): Promise<SiteSettings> {
   try {
-    const res = await fetch(`${API_URL}/api/settings`, { cache: "no-store" })
+    const res = await fetch(`${API_URL}/api/settings`, { next: { revalidate: 60, tags: ["settings"] } })
     const data = await res.json()
     if (!data.success) throw new Error(data.message)
     return data.settings as SiteSettings
