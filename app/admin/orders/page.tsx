@@ -28,37 +28,40 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("")
   const [filter, setFilter] = useState("الكل"), [search, setSearch] = useState(""), [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sort, setSort] = useState("الأحدث"), [copied, setCopied] = useState("")
+  const [page, setPage] = useState(1), [totalPages, setTotalPages] = useState(1), [totalOrders, setTotalOrders] = useState(0)
+  const [summary, setSummary] = useState<Record<string, number>>({ all: 0, revenue: 0 })
 
-  async function load() { setLoading(true); setError(""); try { const data = await fetchAdminOrders(); setOrders(data as unknown as Order[]) } catch { setError("تعذر تحميل الطلبات") } finally { setLoading(false) } }
-  useEffect(() => { if (!getAdminToken()) { router.push("/admin/login"); return }; load() }, [])
+  async function load(targetPage = page) {
+    setLoading(true); setError("")
+    try {
+      const data = await fetchAdminOrders({ page: targetPage, limit: 20, search, status: filter, sort })
+      setOrders(data.orders as unknown as Order[])
+      setPage(data.pagination.page)
+      setTotalPages(data.pagination.totalPages)
+      setTotalOrders(data.pagination.total)
+      setSummary(data.summary)
+    } catch { setError("تعذر تحميل الطلبات") } finally { setLoading(false) }
+  }
+  useEffect(() => { if (!getAdminToken()) { router.push("/admin/login"); return }; load(1) }, [router, filter, search, sort])
 
   async function handleStatusChange(id: number, status: string) {
     const previous = orders.find(o => o.id === id)
     setOrders(current => current.map(o => o.id === id ? { ...o, status } : o))
     if (selectedOrder?.id === id) setSelectedOrder({ ...selectedOrder, status })
-    try { await updateOrderStatus(id, status) } catch { if (previous) setOrders(current => current.map(o => o.id === id ? previous : o)); setSelectedOrder(previous || null) }
+    try { await updateOrderStatus(id, status); await load(page) } catch { if (previous) setOrders(current => current.map(o => o.id === id ? previous : o)); setSelectedOrder(previous || null) }
   }
   function handleLogout() { adminLogout(); router.push("/admin/login") }
-  async function copyText(value: string, key: string) { try { await navigator.clipboard.writeText(value); setCopied(key); setTimeout(() => setCopied(""), 1200) } catch {} }
+  async function copyText(value: string, key: string) { try { await navigator.clipboard.writeText(value); setCopied(key); globalThis.setTimeout(() => setCopied(""), 1200) } catch {} }
 
-  const counts = useMemo(() => Object.fromEntries(["الكل", ...statuses].map(s => [s, s === "الكل" ? orders.length : orders.filter(o => o.status === s).length])), [orders])
-  const filteredOrders = useMemo(() => {
-    let result = filter === "الكل" ? [...orders] : orders.filter(o => o.status === filter)
-    const q = search.trim().toLowerCase()
-    if (q) result = result.filter(o => [o.customer_name, o.phone, String(o.id), o.tracking_code, o.governorate, o.area, o.address, ...(o.items || []).map(i => `${i.product_name} ${i.selected_color || ""} ${i.selected_size || ""}`)].filter(Boolean).join(" ").toLowerCase().includes(q))
-    if (sort === "الأحدث") result.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    if (sort === "الأقدم") result.sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-    if (sort === "الأعلى سعرًا") result.sort((a,b) => b.total - a.total)
-    if (sort === "الأقل سعرًا") result.sort((a,b) => a.total - b.total)
-    return result
-  }, [orders, filter, search, sort])
-  const revenue = orders.filter(o => o.status !== "ملغي").reduce((s,o) => s + o.total, 0)
+  const counts = useMemo(() => Object.fromEntries(["الكل", ...statuses].map(s => [s, s === "الكل" ? summary.all || 0 : summary[s] || 0])), [summary])
+  const filteredOrders = orders
+  const revenue = Number(summary.revenue || 0)
 
   return <main dir="rtl" className="min-h-screen bg-[var(--bg)]">
     <AdminHeader onLogout={handleLogout} />
     <section className="mx-auto max-w-7xl px-4 py-6 sm:px-5 sm:py-10">
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5"><p className="text-xs text-gray-400">إجمالي الطلبات</p><p className="mt-2 text-xl font-semibold sm:text-2xl">{orders.length}</p></div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5"><p className="text-xs text-gray-400">إجمالي الطلبات</p><p className="mt-2 text-xl font-semibold sm:text-2xl">{totalOrders.toLocaleString("ar-EG")}</p></div>
         <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5"><p className="text-xs text-gray-400">طلبات جديدة</p><p className="mt-2 text-xl font-semibold sm:text-2xl">{counts["جديد"]}</p></div>
         <div className="col-span-2 rounded-2xl bg-white p-4 shadow-sm sm:col-span-1 sm:p-5"><p className="text-xs text-gray-400">الإيرادات</p><p className="mt-2 text-xl font-semibold sm:text-2xl">{revenue.toLocaleString("ar-EG")} جنيه</p></div>
       </div>
@@ -79,6 +82,11 @@ export default function AdminDashboard() {
         </div>
         {order.status === "جديد" && <button onClick={()=>handleStatusChange(order.id,"تم التأكيد")} className="mt-3 w-full rounded-xl bg-black py-2.5 text-sm font-medium text-white transition hover:opacity-90 sm:w-auto sm:px-5">✓ تأكيد الطلب</button>}
       </div>)}</div>
+      <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm">
+        <button type="button" disabled={page<=1||loading} onClick={()=>load(page-1)} className="rounded-xl border border-black/10 px-4 py-2 text-sm disabled:opacity-40">السابق</button>
+        <span className="text-xs text-gray-500">صفحة {page} من {totalPages}</span>
+        <button type="button" disabled={page>=totalPages||loading} onClick={()=>load(page+1)} className="rounded-xl border border-black/10 px-4 py-2 text-sm disabled:opacity-40">التالي</button>
+      </div>
     </section>
 
     {selectedOrder && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={()=>setSelectedOrder(null)}>
