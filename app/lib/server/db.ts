@@ -107,17 +107,6 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_products_active_id
     ON products(active, id DESC);
 
-    CREATE INDEX IF NOT EXISTS idx_reviews_product_status_id
-    ON product_reviews(product_id, status, id DESC);
-
-    CREATE INDEX IF NOT EXISTS idx_reviews_status_id
-    ON product_reviews(status, id DESC);
-
-    CREATE INDEX IF NOT EXISTS idx_analytics_created_event
-    ON analytics_events(created_at, event_type);
-
-    CREATE INDEX IF NOT EXISTS idx_analytics_product_created
-    ON analytics_events(product_id, created_at);
 
     CREATE INDEX IF NOT EXISTS idx_order_items_order_id
     ON order_items(order_id);
@@ -159,6 +148,18 @@ export async function initDb() {
       metadata TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE INDEX IF NOT EXISTS idx_reviews_product_status_id
+    ON product_reviews(product_id, status, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_reviews_status_id
+    ON product_reviews(status, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_created_event
+    ON analytics_events(created_at, event_type);
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_product_created
+    ON analytics_events(product_id, created_at);
   `)
 
   // migrate: add new columns to a products table created before this update
