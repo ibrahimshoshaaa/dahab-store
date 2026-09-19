@@ -2,7 +2,7 @@
 import crypto from "node:crypto"
 import { v2 as cloudinary } from "cloudinary"
 import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
-import { createAdminToken, getBearerToken, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
+import { createAdminToken, getAdminTokenFromRequest, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
 import { clientIp, rateLimit } from "@/app/lib/server/rate-limit"
 import { couponDiscount, json, parseProduct, readJson, safeJsonParse, slugify } from "@/app/lib/server/utils"
 
@@ -52,12 +52,18 @@ const body =
     const rl=await rateLimit(`login:${clientIp(request)}`,8,600); if(!rl.ok) return json({success:false,message:"محاولات كثيرة، حاول لاحقًا"},429)
     const b: any = body
     if (!verifyAdminCredentials(b.username, b.password)) return json({ success: false, message: "بيانات الدخول غير صحيحة" }, 401)
-    return json({ success: true, token: await createAdminToken() })
+    const token = await createAdminToken()
+    const response = json({ success: true })
+    response.headers.set("Set-Cookie", `dahab_admin_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${Math.max(300, Number(process.env.ADMIN_TOKEN_TTL_SECONDS || 28800))}`)
+    return response
   }
 
   if (p.join("/") === "admin/logout" && method === "POST") {
     const denied = await adminGuard(request); if (denied) return denied
-    await revokeAdminToken(getBearerToken(request)); return json({ success: true })
+    await revokeAdminToken(getAdminTokenFromRequest(request))
+    const response = json({ success: true })
+    response.headers.set("Set-Cookie", "dahab_admin_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0")
+    return response
   }
 
   // ---------- public products ----------
