@@ -29,6 +29,7 @@ export function verifyAdminCredentials(username: unknown, password: unknown) {
 
 export async function createAdminToken() {
   if (!configured()) throw new Error("Admin authentication is not configured")
+  await db.execute("DELETE FROM admin_sessions WHERE expires_at <= CURRENT_TIMESTAMP")
   const now = Math.floor(Date.now() / 1000)
   const payload: Payload = { sub: ADMIN_USER, jti: crypto.randomUUID(), iat: now, exp: now + TTL_SECONDS }
   await db.execute({ sql: "INSERT INTO admin_sessions(jti, expires_at) VALUES (?, datetime(?, 'unixepoch'))", args: [payload.jti, payload.exp] })
