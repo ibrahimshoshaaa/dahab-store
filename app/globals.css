@@ -125,3 +125,9 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .dahab-shimmer { animation: none; }
 }
+
+/* Reduce main-thread rendering work for below-the-fold sections on mobile. */
+.content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 700px;
+}
