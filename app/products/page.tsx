@@ -9,6 +9,7 @@ import { fetchProducts } from "../lib/api"
 import { useFavorites } from "../context/FavoritesContext"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
+import PageLoading from "../components/PageLoading"
 
 function ProductsContent() {
   const searchParams = useSearchParams()
@@ -53,11 +54,7 @@ function ProductsContent() {
   }, [search, category, sort, products])
 
   if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--brand-dark)] border-t-transparent" />
-      </div>
-    )
+    return <PageLoading />
   }
 
   return (
