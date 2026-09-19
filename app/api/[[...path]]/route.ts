@@ -1,4 +1,3 @@
-// @ts-nocheck
 import crypto from "node:crypto"
 import { v2 as cloudinary } from "cloudinary"
 import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
