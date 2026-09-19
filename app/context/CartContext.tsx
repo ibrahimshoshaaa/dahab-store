@@ -103,7 +103,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setStockMessages(messages)
       setUnavailableItems(unavailable)
       setStockAvailability(availability)
-      return true
+      const changed = cart.some((item) => {
+        const result = results.find((x) =>
+          x.product_id === item.id &&
+          (x.selected_color || "") === (item.selectedColor || "") &&
+          (x.selected_size || "") === (item.selectedSize || "")
+        )
+        return !result || !result.active || Number(result.available) !== item.quantity
+      })
+      return !changed
     } catch {
       setStockMessages({ _error: "تعذر التحقق من المخزون حاليًا. اضغطي إعادة التحقق." })
       return false
@@ -117,9 +125,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setUnavailableItems(new Set())
     setStockAvailability({})
     setCart((current) => {
+      const variantKey = `${selectedColor || "-"}|${selectedSize || "-"}`
+      const hasVariants = !!product.variantStock && Object.keys(product.variantStock).length > 0
+      const variantAvailable = hasVariants ? Number(product.variantStock?.[variantKey] ?? 0) : Number(product.stock ?? 99)
+      if (variantAvailable <= 0) return current
+
       const existing = current.find((item) => item.id === product.id && item.selectedColor === selectedColor && item.selectedSize === selectedSize)
-      if (existing) return current.map((item) => item === existing ? { ...item, quantity: Math.min(product.stock ?? 99, item.quantity + quantity) } : item)
-      return [...current, { ...product, quantity: Math.min(product.stock ?? 99, quantity), selectedColor, selectedSize }]
+      if (existing) {
+        return current.map((item) =>
+          item === existing
+            ? { ...item, quantity: Math.min(variantAvailable, item.quantity + quantity) }
+            : item
+        )
+      }
+
+      return [...current, { ...product, quantity: Math.min(variantAvailable, quantity), selectedColor, selectedSize }]
     })
   }
 
