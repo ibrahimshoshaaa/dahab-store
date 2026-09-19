@@ -47,10 +47,10 @@ export default function SiteHeader() {
       }
     }
 
-    const timeoutId = window.setTimeout(run, 300)
+    const timeoutId = globalThis.setTimeout(run, 300)
     return () => {
       cancelled = true
-      window.clearTimeout(timeoutId)
+      globalThis.clearTimeout(timeoutId)
     }
   }, [pathname])
 
