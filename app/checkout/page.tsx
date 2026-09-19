@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   ArrowRight,
   ArrowLeft,
@@ -517,11 +518,13 @@ export default function CheckoutPage() {
                     className="flex gap-3"
                   >
 
-                    <div className="h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--surface)]">
-                      <img
+                    <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--surface)]">
+                      <Image
                         src={item.image}
                         alt={item.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="64px"
+                        className="object-cover"
                       />
                     </div>
 
