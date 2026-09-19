@@ -52,6 +52,15 @@ export const metadata: Metadata = {
     description: "عبايات مصرية وإكسسوارات مختارة بعناية.",
   },
   robots: { index: true, follow: true },
+  appleWebApp: {
+    capable: true,
+    title: "DAHAB",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [{ url: "/logo.png", sizes: "any", type: "image/png" }],
+    apple: [{ url: "/logo.png", sizes: "any", type: "image/png" }],
+  },
 }
 
 export default async function RootLayout({
@@ -68,6 +77,9 @@ export default async function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="preconnect" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="//images.unsplash.com" />
         {/* eslint-disable-next-line @next/next/no-css-tags */}
