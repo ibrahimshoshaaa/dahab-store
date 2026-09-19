@@ -22,7 +22,12 @@ let dbInitPromise: Promise<void> | null = null
 
 export function ensureDb() {
   if (!dbInitPromise) {
-    dbInitPromise = initDb().catch((error) => {
+    dbInitPromise = db.execute(`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('orders','order_items','products','settings','coupons','product_reviews','admin_sessions','rate_limits','analytics_events')`).then((result) => {
+      const required = new Set(["orders","order_items","products","settings","coupons","product_reviews","admin_sessions","rate_limits","analytics_events"])
+      const found = new Set(result.rows.map((row) => String(row.name)))
+      const missing = [...required].filter((name) => !found.has(name))
+      if (missing.length) throw new Error(`Database schema is not ready. Run npm run db:migrate. Missing: ${missing.join(", ")}`)
+    }).catch((error) => {
       dbInitPromise = null
       throw error
     })
