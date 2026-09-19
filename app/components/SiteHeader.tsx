@@ -44,8 +44,9 @@ export default function SiteHeader() {
 
   return (
     <>
-      {announcement && <div className="bg-white py-2 text-center text-xs text-[var(--ink)]">{announcement}</div>}
-      <header className="sticky top-0 z-50 border-b border-black/5 bg-[var(--bg)]/95 backdrop-blur-xl">
+      <div className="sticky top-0 z-50">
+        {announcement && <div className="bg-white py-2 text-center text-xs text-[var(--ink)]">{announcement}</div>}
+        <header className="border-b border-black/5 bg-[var(--bg)]/95 backdrop-blur-xl">
         <div className="mx-auto grid h-20 max-w-7xl grid-cols-3 items-center px-5">
           <div className="flex items-center justify-self-start">
             <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden" aria-label="فتح القائمة"><Menu size={24} strokeWidth={1.5} /></button>
@@ -60,7 +61,8 @@ export default function SiteHeader() {
             <Link href="/cart" className="relative" aria-label="السلة"><ShoppingBag size={22} strokeWidth={1.5} />{mounted && cartCount > 0 && <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--ink)] px-[3px] text-[9px] text-white">{cartCount}</span>}</Link>
           </div>
         </div>
-      </header>
+        </header>
+      </div>
 
       {searchOpen && <div className="fixed inset-0 z-[80] bg-black/40" onClick={() => setSearchOpen(false)}>
         <div className="mx-auto mt-20 w-[calc(100%-24px)] max-w-2xl overflow-hidden rounded-3xl bg-[var(--bg)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
