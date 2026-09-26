@@ -420,7 +420,7 @@ const body =
       }
       const normalized:any[]=[]
       const ids=Array.from(quantities.keys())
-      const productsResult=await tx.execute(`SELECT id,name,category,price,stock,active,variant_stock FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,ids)
+      const productsResult=await tx.execute({sql:`SELECT id,name,category,price,stock,active,variant_stock FROM products WHERE id IN (${ids.map(()=>"?").join(",")})`,args:ids})
       const products=new Map((productsResult.rows as any[]).map(product=>[Number(product.id),product]))
       for(const [id,qty] of quantities){const product:any=products.get(id);if(!product||!product.active)throw Object.assign(new Error("UNAVAILABLE"),{code:"UNAVAILABLE"});const vs=safeJsonParse<any>(product.variant_stock,{}), matching=items.filter((x:any)=>Number(x.product_id)===id);if(Object.keys(vs).length){for(const item of matching){const key=`${item.selected_color||"-"}|${item.selected_size||"-"}`,q=Math.floor(Number(item.quantity));if(Number(vs[key]??0)<q)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"})}}else if(Number(product.stock)<qty)throw Object.assign(new Error("OUT_OF_STOCK"),{code:"OUT_OF_STOCK"});for(const item of matching)normalized.push({product_id:id,product_name:product.name,price:Number(product.price),quantity:Math.floor(Number(item.quantity)),selected_color:item.selected_color||null,selected_size:item.selected_size||null,category:product.category})}
       const subtotal=normalized.reduce((sum,x)=>sum+x.price*x.quantity,0);let discount=0,coupon:any=null
