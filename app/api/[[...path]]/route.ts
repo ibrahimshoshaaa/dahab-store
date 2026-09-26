@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import crypto from "node:crypto"
 import { v2 as cloudinary } from "cloudinary"
+import type { Transaction } from "@libsql/client"
 import { db, ensureDb, generateTrackingCode } from "@/app/lib/server/db"
 import { createAdminToken, getAdminTokenFromRequest, requireAdmin, revokeAdminToken, verifyAdminCredentials } from "@/app/lib/server/auth"
 import { clientIp, rateLimit } from "@/app/lib/server/rate-limit"
@@ -401,7 +402,7 @@ const body =
   }
 
   if (p.join("/") === "orders" && method === "POST") {
-    let tx:any=null
+    let tx: Transaction | null = null
     try {
       const b:any=body,{customer_name,phone,governorate,area,address,notes,items,total,coupon_code,idempotency_key}=b
       const normalizedPhone=normalizeEgyptianPhone(phone)
@@ -461,7 +462,7 @@ const body =
   if (p.length===2&&p[0]==="orders"&&method==="GET") { const denied=await adminGuard(request);if(denied)return denied; try{const id=numberParam(p[1]);if(!id)return json({success:false,message:"الطلب غير موجود"},404);const r=await db.execute({sql:"SELECT * FROM orders WHERE id=?",args:[id]});if(!r.rows[0])return json({success:false,message:"الطلب غير موجود"},404);const items=await db.execute({sql:"SELECT * FROM order_items WHERE order_id=?",args:[id]});return json({success:true,order:r.rows[0],items:items.rows})}catch(error){console.error(error);return json({success:false,message:"حدث خطأ"},500)} }
   if (p.length===3&&p[0]==="orders"&&p[2]==="status"&&method==="PATCH") {
     const denied=await adminGuard(request);if(denied)return denied
-    let tx:any=null
+    let tx: Transaction | null = null
     try{
       const id=numberParam(p[1]),status=String((body as any)?.status||"")
       if(!id)return json({success:false,message:"الطلب غير موجود"},404)
