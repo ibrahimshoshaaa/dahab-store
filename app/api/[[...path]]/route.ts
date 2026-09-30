@@ -1,4 +1,14 @@
-import { revalidateTag } from "next/cache"
+// Loaded lazily (not as a static import) so this route module can also be
+// loaded directly by Node outside the Next.js runtime — e.g. in
+// tests/orders.test.mjs — where "next/cache" isn't resolvable.
+async function revalidateTag(tag: string, profile?: string) {
+  try {
+    const cache = await import("next/cache")
+    ;(cache.revalidateTag as (tag: string, profile?: string) => void)(tag, profile)
+  } catch {
+    // no-op outside of the Next.js server runtime (e.g. in tests)
+  }
+}
 import crypto from "node:crypto"
 import { v2 as cloudinary } from "cloudinary"
 import type { Transaction } from "@libsql/client"
