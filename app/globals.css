@@ -131,3 +131,10 @@ img {
   content-visibility: auto;
   contain-intrinsic-size: 700px;
 }
+
+/* Keep the last admin row clear of the mobile navigation and device safe area. */
+@media (width < 48rem) {
+  main:has(.admin-bottom-nav) {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+}
