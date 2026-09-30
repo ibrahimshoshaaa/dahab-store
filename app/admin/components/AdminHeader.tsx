@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, ChevronDown, LayoutDashboard, LogOut } from "lucide-react"
+import { Menu, X, ChevronDown, LayoutDashboard, LogOut, House, ShoppingBag, Package, Boxes } from "lucide-react"
 import SiteLogo from "../../components/SiteLogo"
 
 const groups = [
@@ -42,6 +42,13 @@ const groups = [
   },
 ]
 
+const mobileLinks = [
+  { href: "/admin", label: "الرئيسية", icon: House },
+  { href: "/admin/orders", label: "الطلبات", icon: ShoppingBag },
+  { href: "/admin/products", label: "المنتجات", icon: Package },
+  { href: "/admin/inventory", label: "المخزون", icon: Boxes },
+]
+
 export default function AdminHeader({
   maxWidthClass = "max-w-7xl",
   unreadCount = 0,
@@ -55,8 +62,17 @@ export default function AdminHeader({
   const [open, setOpen] = useState(false)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [open])
+
   function isActive(href: string) {
-    return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href)
+    return href === "/admin" ? pathname === "/admin" : (pathname === href || pathname.startsWith(`${href}/`))
   }
 
   function groupIsActive(items: { href: string }[]) {
@@ -64,6 +80,7 @@ export default function AdminHeader({
   }
 
   return (
+    <>
     <header className="sticky top-0 z-40 border-b border-black/10 bg-white/95 backdrop-blur">
       <div className={`mx-auto flex ${maxWidthClass} items-center justify-between px-4 py-4 sm:px-5`}>
         <Link href="/admin" className="flex items-center gap-3" onClick={() => setOpen(false)}>
@@ -130,14 +147,20 @@ export default function AdminHeader({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}
+          aria-expanded={open}
+          aria-controls="admin-mobile-menu"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-gray-600 md:hidden"
         >
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
+    </header>
+
       {open && (
-        <nav className="border-t border-black/10 bg-white px-4 py-3 md:hidden">
+        <>
+        <button type="button" aria-label="إغلاق القائمة" onClick={() => setOpen(false)} className="menu-backdrop fixed inset-0 z-30 bg-black/30 md:hidden" />
+        <nav id="admin-mobile-menu" aria-label="كل أقسام الإدارة" className="menu-backdrop fixed inset-x-3 top-20 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 overflow-y-auto overscroll-contain rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-xl md:hidden">
           <Link
             href="/admin"
             onClick={() => setOpen(false)}
@@ -189,7 +212,32 @@ export default function AdminHeader({
             <LogOut size={17} /> تسجيل الخروج
           </button>
         </nav>
+        </>
       )}
-    </header>
+
+      <nav aria-label="التنقل السريع للإدارة" dir="rtl" className="admin-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.04)] backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+          {mobileLinks.map(({ href, label, icon: Icon }) => {
+            const active = !open && isActive(href)
+            const featured = href === "/admin/products"
+            return (
+              <Link key={href} href={href} aria-current={active ? "page" : undefined} onClick={() => { setOpen(false); setOpenGroup(null) }} className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 text-[11px] font-medium transition-colors ${active ? "bg-[var(--brand-tint)] text-[var(--brand-dark)]" : "text-gray-500 hover:bg-[var(--brand-tint)]"}`}>
+                <span className={featured ? "flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand)] text-white shadow-sm" : "flex h-9 w-9 items-center justify-center"}>
+                  <Icon size={featured ? 21 : 23} aria-hidden="true" />
+                </span>
+                <span>{label}</span>
+              </Link>
+            )
+          })}
+          <button type="button" aria-expanded={open} aria-controls="admin-mobile-menu" onClick={() => { setOpen((v) => !v); setOpenGroup(null) }} className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-1.5 text-[11px] font-medium transition-colors ${open || !mobileLinks.some((item) => isActive(item.href)) ? "bg-[var(--brand-tint)] text-[var(--brand-dark)]" : "text-gray-500 hover:bg-[var(--brand-tint)]"}`}>
+            <span className="relative flex h-9 w-9 items-center justify-center">
+              {open ? <X size={23} aria-hidden="true" /> : <Menu size={23} aria-hidden="true" />}
+              {unreadCount > 0 && <span aria-label={`${unreadCount} رسائل غير مقروءة`} className="absolute -top-1 -right-1 rounded-full bg-[var(--brand)] px-1.5 text-[9px] text-white">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+            </span>
+            <span>المزيد</span>
+          </button>
+        </div>
+      </nav>
+    </>
   )
 }
