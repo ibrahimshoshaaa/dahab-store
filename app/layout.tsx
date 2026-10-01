@@ -3,6 +3,8 @@ import { unstable_cache } from "next/cache"
 import "./globals.css"
 import { CartProvider } from "./context/CartContext"
 import { FavoritesProvider } from "./context/FavoritesContext"
+import FloatingWhatsApp from "./components/FloatingWhatsApp"
+import { ContactSettingsProvider } from "./context/ContactSettingsContext"
 import PwaRegister from "./components/PwaRegister"
 import { db, ensureDb } from "./lib/server/db"
 import { SITE_URL } from "./lib/site"
@@ -103,7 +105,7 @@ export default async function RootLayout({
       <body>
         <PwaRegister />
         <CartProvider>
-          <FavoritesProvider>{children}</FavoritesProvider>
+          <FavoritesProvider><ContactSettingsProvider>{children}<FloatingWhatsApp /></ContactSettingsProvider></FavoritesProvider>
         </CartProvider>
       </body>
     </html>

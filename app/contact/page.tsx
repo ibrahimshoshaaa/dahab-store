@@ -12,6 +12,7 @@ import {
 import { fetchSettings, submitContactMessage, type SiteSettings } from "../lib/api"
 import SiteHeader from "../components/SiteHeader"
 import StoreFooter from "../components/StoreFooter"
+import { normalizeSocialUrl } from "../lib/contact-links"
 import PageLoading from "../components/PageLoading"
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -142,7 +143,7 @@ export default function ContactPage() {
 
             <div className="flex items-center gap-4 pt-2">
               <a
-                href={s(settings, "contact_instagram_url")}
+                href={normalizeSocialUrl(s(settings, "contact_instagram_url")) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ink)] text-xs font-medium text-white transition hover:bg-[var(--brand)]"
@@ -150,7 +151,7 @@ export default function ContactPage() {
                 IG
               </a>
               <a
-                href={s(settings, "contact_facebook_url")}
+                href={normalizeSocialUrl(s(settings, "contact_facebook_url")) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ink)] text-xs font-medium text-white transition hover:bg-[var(--brand)]"
