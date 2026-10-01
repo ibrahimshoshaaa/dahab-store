@@ -9,9 +9,12 @@ import {
   updateSettings,
   type SiteSettings,
 } from "../../lib/api"
+import { normalizeSocialUrl, contactWhatsappUrl } from "../../lib/contact-links"
 import AdminHeader from "../components/AdminHeader"
 
 const FIELD_LABELS: Record<string, string> = {
+  contact_whatsapp_phone: "رقم واتساب (بكود الدولة أو رقم مصري)",
+  contact_whatsapp_message: "رسالة واتساب الافتراضية (اختياري)",
   contact_phone: "رقم التليفون",
   contact_email: "البريد الإلكتروني",
   contact_address: "العنوان",
@@ -40,9 +43,11 @@ const TEXTAREA_KEYS = new Set([
 
 const GROUPS: { title: string; keys: string[] }[] = [
   {
-    title: "صفحة تواصل معنا",
+    title: "بيانات التواصل وروابط السوشيال وواتساب",
     keys: [
       "contact_phone",
+      "contact_whatsapp_phone",
+      "contact_whatsapp_message",
       "contact_email",
       "contact_address",
       "contact_hours",
@@ -91,10 +96,21 @@ export default function AdminPagesEditor() {
   }
 
   async function handleSave() {
+    const payload = { ...settings }
+    for (const key of ["contact_facebook_url", "contact_instagram_url"]) {
+      const value = settings[key]?.trim() || ""
+      const url = normalizeSocialUrl(value)
+      if (value && value !== "#" && !url) { setError("اكتب رابط Facebook أو Instagram صحيحًا"); return }
+      payload[key] = url
+    }
+    if (settings.contact_whatsapp_phone?.trim() && !contactWhatsappUrl(settings)) {
+      setError("اكتب رقم واتساب صحيحًا مع كود الدولة، أو رقم موبايل مصري"); return
+    }
     setSaving(true)
     setError("")
     try {
-      await updateSettings(settings)
+      await updateSettings(payload)
+      setSettings(payload)
       setSaved(true)
     } catch {
       setError("حدث خطأ أثناء الحفظ — تأكد من اتصال الباك إند")
@@ -129,7 +145,7 @@ export default function AdminPagesEditor() {
               بيانات صفحات تواصل معنا / الشحن / الاستبدال
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              التغييرات تظهر على الموقع فورًا بعد الحفظ.
+              روابط السوشيال تظهر في الفوتر وصفحة التواصل. رقم واتساب يشغّل الزر الثابت؛ اتركه فارغًا لإخفائه.
             </p>
           </div>
           <SaveBtn />
@@ -154,12 +170,12 @@ export default function AdminPagesEditor() {
                 <div className="space-y-5">
                   {group.keys.map((key) => {
                     const label = FIELD_LABELS[key]
-                    const value = settings[key] ?? ""
+                    const value = settings[key] ?? (key === "contact_whatsapp_phone" ? settings.contact_phone ?? "" : "")
                     const isTextarea = TEXTAREA_KEYS.has(key)
 
                     return (
                       <div key={key} className="rounded-2xl bg-white p-5 shadow-sm">
-                        <label className="mb-3 block text-sm font-medium text-gray-700">
+                        <label htmlFor={key} className="mb-3 block text-sm font-medium text-gray-700">
                           {label}
                         </label>
 
@@ -172,6 +188,9 @@ export default function AdminPagesEditor() {
                           />
                         ) : (
                           <input
+                            id={key}
+                            dir={key.endsWith("_url") || key.endsWith("_phone") ? "ltr" : "rtl"}
+                            placeholder={key.endsWith("_url") ? "https://..." : key === "contact_whatsapp_phone" ? "201xxxxxxxxx" : undefined}
                             type="text"
                             value={value}
                             onChange={(e) => handleChange(key, e.target.value)}

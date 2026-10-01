@@ -419,10 +419,13 @@ export async function fetchSettings(): Promise<SiteSettings> {
 }
 
 export async function updateSettings(payload: SiteSettings) {
-  return adminFetch("/api/admin/settings", {
+  const result = await adminFetch("/api/admin/settings", {
     method: "PUT",
     body: JSON.stringify(payload),
   })
+  clientSettingsCache = null
+  clientRequiredSettingsCache = null
+  return result
 }
 
 // ---------- image upload ----------

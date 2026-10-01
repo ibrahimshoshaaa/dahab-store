@@ -1,8 +1,16 @@
+"use client"
+
 import Link from "next/link"
 import { MessageCircle, ArrowUp } from "lucide-react"
+import { useContactSettings } from "../context/ContactSettingsContext"
+import { normalizeSocialUrl, contactWhatsappUrl } from "../lib/contact-links"
 import SiteLogo from "./SiteLogo"
 
 export default function StoreFooter() {
+  const settings = useContactSettings()
+  const instagram = normalizeSocialUrl(settings.contact_instagram_url)
+  const facebook = normalizeSocialUrl(settings.contact_facebook_url)
+  const whatsapp = contactWhatsappUrl(settings)
   return (
     <footer className="bg-[var(--ink)] px-5 py-14 text-white">
       <div className="mx-auto grid max-w-7xl gap-12 md:grid-cols-4">
@@ -12,9 +20,9 @@ export default function StoreFooter() {
             عبايات مصرية وإكسسوارات مختارة بعناية، لأن أناقتك تستحق الأفضل.
           </p>
           <div className="mt-6 flex gap-3">
-            <a aria-label="Instagram" href="#" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><span className="text-sm font-semibold">IG</span></a>
-            <a aria-label="Facebook" href="#" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><span className="text-sm font-semibold">f</span></a>
-            <a aria-label="WhatsApp" href="https://wa.me/201000000000" target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><MessageCircle size={17} /></a>
+            {instagram && (<a aria-label="Instagram" href={instagram} target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><span className="text-sm font-semibold">IG</span></a>)}
+            {facebook && (<a aria-label="Facebook" href={facebook} target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><span className="text-sm font-semibold">f</span></a>)}
+            {whatsapp && (<a aria-label="WhatsApp" href={whatsapp} target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-white/30"><MessageCircle size={17} /></a>)}
           </div>
         </div>
         <div className="col-span-1 grid grid-cols-2 gap-8 md:col-span-2">
