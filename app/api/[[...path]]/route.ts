@@ -78,7 +78,7 @@ const body =
     const rl=await rateLimit(`login:${clientIp(request)}`,8,600); if(!rl.ok) return json({success:false,message:"محاولات كثيرة، حاول لاحقًا"},429)
     const b: any = body
     if (!verifyAdminCredentials(b.username, b.password)) return json({ success: false, message: "بيانات الدخول غير صحيحة" }, 401)
-    const token = await createAdminToken()
+    const token = await createAdminToken(b.username)
     const response = json({ success: true })
     const maxAge = Math.max(300, Number(process.env.ADMIN_TOKEN_TTL_SECONDS || 28800))
     response.headers.append("Set-Cookie", `dahab_admin_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`)
